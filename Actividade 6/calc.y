@@ -14,8 +14,10 @@ void yyerror (char const *);
     calc_t_seq seq;
 }
 
+/* Bison declarations.  */
 %token     <val>        NUM
 %token     <name>       ID
+%token                  NL      /* newline */
 
 %right                  ASSIGN
 
@@ -38,12 +40,12 @@ seq:            /* empty */ { $$ = calc_seq_new_empty(); }
 
 exp:            NUM                 { $$ = calc_exp_new_num($1); }
             |   ID                  { $$ = calc_exp_new_id($1); }
-            |   exp ADD exp         { $$ =  }
-            |   exp SUB exp         { $$ =  }
-            |   exp MUL exp         { $$ =  }
-            |   exp DIV exp         { $$ =  }
-            |   SUB exp %prec NEG   { $$ =  }
-            |   LPAR exp RPAR       { $$ = $2; }
+            |   exp ADD exp         { $$ = $1 + $3; }
+            |   exp SUB exp         { $$ = $1 - $3; }
+            |   exp MUL exp         { $$ = $1 * $3; }
+            |   exp DIV exp         { $$ = $1 / $3; }
+            |   SUB exp %prec NEG   { $$ = 0 - $2;  }
+            |   LPAR exp RPAR       { $$ = $2;      }
             |   ID ASSIGN exp       { $$ =  }
 ;
 %%
