@@ -1,4 +1,4 @@
-\documentclass{standalone}\use
+\documentclass{standalone}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 
@@ -21,6 +21,19 @@ edge from parent/.style=
 
 \centering
 \begin{tikzpicture}
-\Tree [.exp [.assign [.id $a$ ] [.exp [.num $1$ ] ] ] ]
+\Tree [.seq 
+[.binop $+$ [.exp [.num $3$ ] ]
+[.exp [.num $2$ ] ]
+ ]
+[.seq 
+[.assign $a$ [.exp [.num $2$ ] ]
+ ]
+[.seq 
+[.assign $b$ [.exp [.id $a$ ] ]
+ ]
+[.\emph{empty} ]
+] 
+] 
+] 
 \end{tikzpicture}
 \end{document}

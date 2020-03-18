@@ -21,6 +21,29 @@ edge from parent/.style=
 
 \centering
 \begin{tikzpicture}
-\Tree [.exp [.assign [.id $a$ ] [.exp [.num $1$ ] ] ] ] 
+\Tree [.seq 
+[.assign $a$ [.binop $+$ [.exp [.num $12$ ] ]
+[.binop $*$ [.exp [.num $3$ ] ]
+[.exp [.num $2$ ] ]
+ ]
+ ]
+ ]
+[.seq 
+[.assign $b$ [.binop $/$ [.exp [.id $a$ ] ]
+[.unop $-$ [.exp [.num $2$ ] ]
+ ]
+ ]
+ ]
+[.seq 
+[.assign $c$ [.binop $/$ [.binop $*$ [.exp [.id $a$ ] ]
+[.exp [.id $b$ ] ]
+ ]
+[.exp [.num $2$ ] ]
+ ]
+ ]
+[.\emph{empty} ]
+] 
+] 
+] 
 \end{tikzpicture}
 \end{document}
