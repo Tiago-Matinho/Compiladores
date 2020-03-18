@@ -78,10 +78,10 @@ union YYSTYPE
 {
 #line 10 "calc.y" /* yacc.c:1909  */
 
-    double val;
-    char *name;
-    calc_t_exp exp;
-    calc_t_seq seq;
+	double val;
+	char *name;
+	calc_t_exp exp;
+	calc_t_seq seq;
 
 #line 87 "parser.h" /* yacc.c:1909  */
 };

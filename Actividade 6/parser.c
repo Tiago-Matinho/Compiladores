@@ -139,10 +139,10 @@ union YYSTYPE
 {
 #line 10 "calc.y" /* yacc.c:355  */
 
-    double val;
-    char *name;
-    calc_t_exp exp;
-    calc_t_seq seq;
+	double val;
+	char *name;
+	calc_t_exp exp;
+	calc_t_seq seq;
 
 #line 148 "parser.c" /* yacc.c:355  */
 };
@@ -1244,8 +1244,8 @@ yyreduce:
         case 2:
 #line 32 "calc.y" /* yacc.c:1646  */
     { print_prologue();
-                          calc_seq_print((yyvsp[0].seq));
-                          print_epilogue(); }
+						  calc_seq_print((yyvsp[0].seq));
+						  print_epilogue(); }
 #line 1250 "parser.c" /* yacc.c:1646  */
     break;
 
@@ -1263,55 +1263,55 @@ yyreduce:
 
   case 5:
 #line 41 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = calc_exp_new_num((yyvsp[0].val)); }
+    { (yyval.exp) = calc_exp_new_num((yyvsp[0].val));           	}
 #line 1268 "parser.c" /* yacc.c:1646  */
     break;
 
   case 6:
 #line 42 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = calc_exp_new_id((yyvsp[0].name)); }
+    { (yyval.exp) = calc_exp_new_id((yyvsp[0].name));            	}
 #line 1274 "parser.c" /* yacc.c:1646  */
     break;
 
   case 7:
 #line 43 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = (yyvsp[-2].exp) + (yyvsp[0].exp); }
+    { (yyval.exp) = calc_exp_new_binop("+", (yyvsp[-2].exp), (yyvsp[0].exp)); }
 #line 1280 "parser.c" /* yacc.c:1646  */
     break;
 
   case 8:
 #line 44 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = (yyvsp[-2].exp) - (yyvsp[0].exp); }
+    { (yyval.exp) = calc_exp_new_binop("-", (yyvsp[-2].exp), (yyvsp[0].exp)); }
 #line 1286 "parser.c" /* yacc.c:1646  */
     break;
 
   case 9:
 #line 45 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = (yyvsp[-2].exp) * (yyvsp[0].exp); }
+    { (yyval.exp) = calc_exp_new_binop("*", (yyvsp[-2].exp), (yyvsp[0].exp)); }
 #line 1292 "parser.c" /* yacc.c:1646  */
     break;
 
   case 10:
 #line 46 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = (yyvsp[-2].exp) / (yyvsp[0].exp); }
+    { (yyval.exp) = calc_exp_new_binop("/", (yyvsp[-2].exp), (yyvsp[0].exp)); }
 #line 1298 "parser.c" /* yacc.c:1646  */
     break;
 
   case 11:
 #line 47 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = 0 - (yyvsp[0].exp);  }
+    { (yyval.exp) = calc_exp_new_unop("-", (yyvsp[0].exp));      }
 #line 1304 "parser.c" /* yacc.c:1646  */
     break;
 
   case 12:
 #line 48 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) = (yyvsp[-1].exp);      }
+    { (yyval.exp) = (yyvsp[-1].exp);                             	}
 #line 1310 "parser.c" /* yacc.c:1646  */
     break;
 
   case 13:
 #line 49 "calc.y" /* yacc.c:1646  */
-    { (yyval.exp) =  }
+    { (yyval.exp) = calc_exp_new_assign((yyvsp[-2].name), (yyvsp[0].exp));    	}
 #line 1316 "parser.c" /* yacc.c:1646  */
     break;
 
@@ -1548,10 +1548,10 @@ yyreturn:
 
 void yyerror (char const *s)
 {
-    fprintf (stderr, "%s\n", s);
+	fprintf (stderr, "%s\n", s);
 }
 
 int main (void)
 {
-    return yyparse();
+	return yyparse();
 }

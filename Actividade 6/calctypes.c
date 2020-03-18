@@ -9,8 +9,20 @@ struct calc_t_exp_ {
 	union {
 		int num;
 		char *id;
-	/* .................... */
-  } u;
+		struct {
+			char op[OP_LIM];
+			calc_t_exp arg1;
+			calc_t_exp arg2;
+		}binop;
+		struct {
+			char op[OP_LIM];
+			calc_t_exp arg;
+		}unop;
+		struct {
+			char *id;
+			calc_t_exp rvalue;
+		}assign;
+  	} u;
 };
 
 struct calc_t_seq_ {
@@ -23,6 +35,8 @@ struct calc_t_seq_ {
 		} exp;
 	} u;
 };
+
+/*********************************************************************/
 
 calc_t_exp calc_exp_new_num(int num)
 {
@@ -44,6 +58,40 @@ calc_t_exp calc_exp_new_id(char *id)
   	return ret;
 }
 
+calc_t_exp calc_exp_new_binop(char op[OP_LIM], calc_t_exp arg1, calc_t_exp arg2)
+{
+  	calc_t_exp ret = (calc_t_exp) malloc (sizeof (*ret));
+
+  	ret->kind = EXP_BINOP;
+	strcpy(ret->u.binop.op, op);
+  	ret->u.binop.arg1 = arg1;
+  	ret->u.binop.arg2 = arg2;
+
+  	return ret;
+}
+
+calc_t_exp calc_exp_new_unop(char op[OP_LIM], calc_t_exp arg)
+{
+  	calc_t_exp ret = (calc_t_exp) malloc (sizeof (*ret));
+
+  	ret->kind = EXP_UNOP;
+	strcpy(ret->u.unop.op, op);
+  	ret->u.unop.arg = arg;
+
+  	return ret;
+}
+
+calc_t_exp calc_exp_new_assign(char *id, calc_t_exp rvalue)
+{
+  	calc_t_exp ret = (calc_t_exp) malloc (sizeof (*ret));
+
+  	ret->kind = EXP_ASSIGN;
+	ret->u.assign.id = id;
+	ret->u.assign.rvalue = rvalue;
+
+  	return ret;
+}
+
 void calc_exp_print(calc_t_exp exp)
 {
   	switch (exp->kind) {
@@ -54,10 +102,34 @@ void calc_exp_print(calc_t_exp exp)
 		printf("[.exp [.id $%s$ ] ]\n", exp->u.id);
 		break;
 
-	/* ........... */
-	
+	case EXP_BINOP:
+		printf("[.binop ");
+		printf("$%s$ ", exp->u.binop.op);
+		calc_exp_print(exp->u.binop.arg1);
+		calc_exp_print(exp->u.binop.arg2);
+		printf(" ]\n");
+		break;
+
+	case EXP_UNOP:
+		printf("[.unop ");
+		printf("$%s$ ", exp->u.unop.op);
+		calc_exp_print(exp->u.unop.arg);
+		printf(" ]\n");
+		break;
+
+	case EXP_ASSIGN:
+		printf("[.assign $%s$ ", exp->u.assign.id);
+		calc_exp_print(exp->u.assign.rvalue);
+		printf(" ]\n");
+		break;
+
+	default:
+		printf("ERROR!\n");
+		break;
   }
 }
+
+/*********************************************************************/
 
 calc_t_seq calc_seq_new_empty()
 {
