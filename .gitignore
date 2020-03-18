@@ -1,3 +1,6 @@
+mycalc
+lexer.c
+parser.*
 *.o
 calc
 *.log
