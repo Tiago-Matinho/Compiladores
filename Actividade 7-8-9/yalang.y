@@ -19,7 +19,7 @@ void yyerror (char const *);
     char   *str;
 }
 			
-/* Bison declarations.  */
+/* Bison decrations.  */
 %token	<ival>          INTLIT BOOLLIT
 %token	<dval>          FLOATLIT
 %token	<str>           STRLIT ID
@@ -60,12 +60,12 @@ program:  /*    empty */
                                 print_epilogue(); }
         ;
 
-decls:   	    decl        {yalang_decls_new_empty($1); }
-        |	    decl decls  {yalang_decls_new($1, $2);   }
+decls:   	    decl        { yalang_decls_new_empty($1); }
+        |	    decl decls  { yalang_decls_new($1, $2);   }
                 ;
 
-decl:    	    ids COLON type SEMI {yalang_decl_new_var( yalang_var_new($1, $3) ); }
-        |	    ids COLON type ASSIGN exp SEMI
+decl:    	    ids COLON type SEMI { yalang_decl_new_var( yalang_var_new($1, $3) ); }
+        |	    ids COLON type ASSIGN exp SEMI { yalang_decl_new_varinit( yalang_var_new($1, $3), yalang_value_new($5) ); }
         |	    ID LPAR RPAR COLON type LCBRACE stms RCBRACE SEMI
         |	    ID LPAR argdefs RPAR COLON type LCBRACE stms RCBRACE SEMI
         |	    DEFINE ID type SEMI
@@ -82,8 +82,8 @@ args:		    exp
         |	    exp COMMA args
                 ;
 
-ids:     	    ID                  {yalang_ids_new_empty($1) ;}
-        |	    ID COMMA ids        {yalang_ids_new($1, $3) ;}
+ids:     	    ID                  { yalang_ids_new_empty($1); }
+        |	    ID COMMA ids        { yalang_ids_new($1, $3); }
                 ;
 
 stms:    	    stm
@@ -99,13 +99,13 @@ stm:     	    decl
         |       NEXT
                 ;
 
-type:    	    T_INT       {yalang_type_new_int() ;}
-        |	    T_FLOAT     {yalang_type_new_float() ;}
-        |	    T_STRING    {yalang_type_new_string() ;}
-        |	    T_BOOL      {yalang_type_new_bool() ;}
-        |	    T_VOID      {yalang_type_new_void() ;}
-        |	    ID          {yalang_type_new_id() ;}
-        |	    type LSBRACE INTLIT RSBRACE         {yalang_type_new_array($1, $3) ;}
+type:    	    T_INT                               { yalang_type_new_int();        }
+        |	    T_FLOAT                             { yalang_type_new_float();      }
+        |	    T_STRING                            { yalang_type_new_string();     }
+        |	    T_BOOL                              { yalang_type_new_bool();       }
+        |	    T_VOID                              { yalang_type_new_void();       }
+        |	    ID                                  { yalang_type_new_id();         }
+        |	    type LSBRACE INTLIT RSBRACE         { yalang_type_new_array($1, $3);}
                 ;
 
 lit:     	    INTLIT
