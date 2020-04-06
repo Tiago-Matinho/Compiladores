@@ -1,7 +1,7 @@
 %{
 
 #include <stdio.h>
-#include "yalang_apt.h"
+#include "yalangapt.h"
 #include "latex.h"  /* print_prologue(), etc. */
 
 extern int yylineno;
@@ -51,6 +51,7 @@ void yyerror (char const *);
 %nonassoc		LSBRACE RSBRACE
 %nonassoc		LPAR RPAR
 
+%type   <program>       program
 %type   <decls>         decls
 %type   <decl>          decl
 %type   <argdefs>       argdefs
@@ -67,13 +68,12 @@ void yyerror (char const *);
 
 program:
                 decls                                                                   { print_prologue();
-                                                                                        // TODO print final
-                                                                                        $$ = yalang_print($1);
+                                                                                        $$ = yalang_decls_print($1);
                                                                                         print_epilogue();
                                                                                         }
         ;
 
-decls:   	decl                                                                    { $$ = yalang_decls_new_empty($1); }
+decls:   	decl                                                                    { $$ = yalang_decls_new_single($1); }
         |	decl decls                                                              { $$ = yalang_decls_new($1, $2);   }
         ;
 
@@ -127,24 +127,23 @@ lit:     	INTLIT                                                                
         |	BOOLLIT                                                                 { $$ = yalang_lit_bool_new($1); }
         ;
 
-//TODO
 exp:     	lit                                                                     { $$ = yalang_exp_new_lit($1); }
         |	ID                                                                      { $$ = yalang_exp_new_id($1); }
         |	exp LSBRACE INTLIT RSBRACE                                              { $$ = yalang_exp_new_arr($1, $3); }
-        |	exp ADD exp                                                             { $$ = yalang_exp_new_binop($1, "+", $2); }
-        |	exp SUB exp                                                             { $$ = yalang_exp_new_binop($1, "-", $2); }
-        |	exp MUL exp                                                             { $$ = yalang_exp_new_binop($1, "*", $2); }
-        |	exp DIV exp                                                             { $$ = yalang_exp_new_binop($1, "/", $2); }
-        |	exp POW exp                                                             { $$ = yalang_exp_new_binop($1, "^", $2); }
-        |	exp MOD exp                                                             { $$ = yalang_exp_new_binop($1, "%", $2); }
-        |	exp GT exp                                                              { $$ = yalang_exp_new_binop($1, ">", $2); }
-        |	exp LT exp                                                              { $$ = yalang_exp_new_binop($1, "<", $2); }
-        |	exp GEQ exp                                                             { $$ = yalang_exp_new_binop($1, ">=", $2); }
-        |	exp LEQ exp                                                             { $$ = yalang_exp_new_binop($1, "<=", $2); }
-        |	exp EQ exp                                                              { $$ = yalang_exp_new_binop($1, "==", $2); }
-        |	exp NEQ exp                                                             { $$ = yalang_exp_new_binop($1, "!=", $2); }
-        |	exp AND exp                                                             { $$ = yalang_exp_new_binop($1, "&&", $2); }
-        |	exp OR exp                                                              { $$ = yalang_exp_new_binop($1, "||", $2); }
+        |	exp ADD exp                                                             { $$ = yalang_exp_new_binop($1, "+", $3); }
+        |	exp SUB exp                                                             { $$ = yalang_exp_new_binop($1, "-", $3); }
+        |	exp MUL exp                                                             { $$ = yalang_exp_new_binop($1, "*", $3); }
+        |	exp DIV exp                                                             { $$ = yalang_exp_new_binop($1, "/", $3); }
+        |	exp POW exp                                                             { $$ = yalang_exp_new_binop($1, "^", $3); }
+        |	exp MOD exp                                                             { $$ = yalang_exp_new_binop($1, "%", $3); }
+        |	exp GT exp                                                              { $$ = yalang_exp_new_binop($1, ">", $3); }
+        |	exp LT exp                                                              { $$ = yalang_exp_new_binop($1, "<", $3); }
+        |	exp GEQ exp                                                             { $$ = yalang_exp_new_binop($1, ">=", $3); }
+        |	exp LEQ exp                                                             { $$ = yalang_exp_new_binop($1, "<=", $3); }
+        |	exp EQ exp                                                              { $$ = yalang_exp_new_binop($1, "==", $3); }
+        |	exp NEQ exp                                                             { $$ = yalang_exp_new_binop($1, "!=", $3); }
+        |	exp AND exp                                                             { $$ = yalang_exp_new_binop($1, "&&", $3); }
+        |	exp OR exp                                                              { $$ = yalang_exp_new_binop($1, "||", $3); }
         |	NOT exp                                                                 { $$ = yalang_exp_new_unop($2, "!"); }
         |	SUB exp  %prec NEG                                                      { $$ = yalang_exp_new_unop($2, "-"); }
         |	LPAR exp RPAR                                                           { $$ = yalang_exp_new_unop($2, "()"); }
