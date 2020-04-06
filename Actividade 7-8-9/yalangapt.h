@@ -40,6 +40,7 @@ t_stm t_stm_new_decl(t_decl decl);
 t_stm t_stm_new_exp(t_exp exp);
 t_stm t_stm_new_ifelse(t_exp exp, t_stm stm1, t_stm stm2);
 t_stm t_stm_new_while(t_exp exp, t_stm stm);
+t_stm t_stm_new_return(t_exp exp);
 t_stm t_stm_new_next();
 
 t_exp t_exp_new_intlit(int i);
@@ -51,6 +52,12 @@ t_exp t_exp_new_op(char op[OP_LIM], t_exp exp1, t_exp exp2);
 t_exp t_exp_new_assign(t_exp exp1, t_exp exp2);
 t_exp t_exp_new_array(t_exp exp, int pos);
 t_exp t_exp_new_funct(char *id, t_args args);
+
+t_argsdef t_argsdef_new(t_argdef a, t_argsdef as);
+
+t_argdef t_argdef_new(char *id, t_type type);
+
+t_args t_args_new(t_exp exp, t_args a);
 
 t_ids t_ids_new(char *id, t_ids ids);
 

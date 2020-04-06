@@ -303,6 +303,17 @@ t_stm t_stm_new_while(t_exp exp, t_stm stm)
     return ret;
 }
 
+t_stm t_stm_new_return(t_exp exp)
+{
+    t_stm ret = (t_stm) malloc( sizeof(*ret));
+
+    ret->kind = STM_RET;
+
+    ret->u.exp = exp;
+
+    return ret;
+}
+
 t_stm t_stm_new_next()
 {
     t_stm ret = (t_stm) malloc( sizeof(*ret));
@@ -419,6 +430,40 @@ t_exp t_exp_new_funct(char *id, t_args args)
     return ret;
 }
 
+t_argsdef t_argsdef_new(t_argdef a, t_argsdef as)
+{
+    t_argsdef ret = (t_argsdef) malloc( sizeof(*ret));
+
+    if(as == NULL)
+        ret->kind = ARGS_SINGLE;
+    else
+        ret->kind = ARGS_LIST;
+
+    ret->a = a;
+    ret->as = as;
+
+    return ret;
+}
+
+t_argdef t_argdef_new(char *id, t_type type)
+{
+    t_argdef ret = (t_argdef) malloc( sizeof(*ret));
+
+    ret->id = id;
+    ret->type = type;
+
+    return ret;
+}
+
+t_args t_args_new(t_exp exp, t_args a)
+{
+    t_args ret = malloc( sizeof(*ret));
+
+    ret->exp = exp;
+    ret->as = a;
+
+    return ret;
+}
 
 t_ids t_ids_new(char *id, t_ids ids)
 {
@@ -434,7 +479,6 @@ t_ids t_ids_new(char *id, t_ids ids)
 
     return ret;
 }
-
 
 t_type t_type_new(char c)
 {
