@@ -26,11 +26,11 @@ void print_prologue()
 		"\n"
 		"\\centering\n"
 		"\\begin{tikzpicture}\n"
-		"\\Tree ");
+		"\\Tree [.PROGRAM\n");
 }
 
 void print_epilogue()
 {
-	printf("\\end{tikzpicture}\n"
+	printf("]\n\\end{tikzpicture}\n"
 		"\\end{document}\n");
 }

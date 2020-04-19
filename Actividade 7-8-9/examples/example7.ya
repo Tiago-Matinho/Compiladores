@@ -8,4 +8,4 @@ func() : int {
    print(b);
 
    return(a+1);
-}
+};
