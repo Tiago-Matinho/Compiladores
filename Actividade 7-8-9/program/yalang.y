@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include "yalangapt.h"
+#include <stdbool.h>
+#include "latex.h"  /* print_prologue(), etc. */
 
 extern int yylineno;
 extern FILE *yyin;
@@ -16,10 +18,22 @@ void yyerror (char const *);
     int    ival;
     double dval;
     char   *str;
+	bool	b;
+	t_decls decls;
+	t_decl decl;
+	t_stms stms;
+	t_stm stm;
+	t_exp exp;
+	t_argsdef argdefs;
+	t_argdef argdef;
+	t_args args;
+	t_ids ids;
+	t_type type;
 }
 			
 /* Bison declarations.  */
-%token	<ival>          INTLIT BOOLLIT
+%token	<ival>          INTLIT
+%token  <b>				BOOLLIT
 %token	<dval>          FLOATLIT
 %token	<str>           STRLIT ID
 			
@@ -51,14 +65,30 @@ void yyerror (char const *);
 %nonassoc		LPAR RPAR
 
 
+%type			<decls>			decls
+%type			<decl>			decl
+%type			<argdefs>		argdefs
+%type			<argdef>		argdef
+%type			<args>			args
+%type			<ids>			ids
+%type			<stms>			stms
+%type			<stm>			stm
+%type			<type>			type
+%type			<exp>			exp
+
+
 %%
 
-program:  		/*    empty */													{ $$ = NULL; }
-		|	    decls  															{ $$ = $1; }
+program:  		/*    empty */													{ print_prologue();
+																				printf("$empty$");
+						  														print_epilogue(); }
+		|	    decls  															{ print_prologue();
+						  														t_decls_print($1);
+						  														print_epilogue(); }
 		;
 
 decls:   	    decl															{ $$ = t_decls_new($1, NULL); }
-		|	    decl decls	{ $$ = t_decls_new($1, $2); }
+		|	    decl decls														{ $$ = t_decls_new($1, $2); }
 		;
 
 decl:    	    ids COLON type SEMI												{ $$ = t_decl_new_var($1, $3, NULL); }
@@ -87,9 +117,9 @@ stms:    	    stm																{ $$ = t_stms_new($1, NULL); }
 		|	    stm stms														{ $$ = t_stms_new($1, $2); }
 		;
 
-stm:     	    decl															{ $$ = t_stm_new_decl($1); }
+stm:     	    decls															{ $$ = t_stm_new_decls($1); }
 		|	    exp SEMI														{ $$ = t_stm_new_exp($1); }
-		|	    RETURN exp SEMI													{ $$ = t_stm_new_return($1); }
+		|	    RETURN exp SEMI													{ $$ = t_stm_new_return($2); }
 		|	    IF exp THEN LCBRACE stms RCBRACE SEMI							{ $$ = t_stm_new_ifelse($2, $5, NULL); }
 		|	    IF exp THEN LCBRACE stms RCBRACE ELSE LCBRACE stms RCBRACE SEMI { $$ = t_stm_new_ifelse($2, $5, $9); }
 		|	    WHILE exp DO LCBRACE stms RCBRACE SEMI							{ $$ = t_stm_new_while($2, $5); }
@@ -102,16 +132,13 @@ type:    	    T_INT															{ $$ = t_type_new('i'); }
 		|	    T_BOOL															{ $$ = t_type_new('b'); }
 		|	    T_VOID															{ $$ = t_type_new('v'); }
 		|	    ID																{ $$ = t_type_new_id($1); }
-		|	    type LSBRACE INTLIT RSBRACE										{ $$ = t_type_new($1, $3); }
+		|	    type LSBRACE INTLIT RSBRACE										{ $$ = t_type_new_array($1, $3); }
 		;
 
-lit:     	    INTLIT															{ $$ = t_exp_new_intlit($1); }
+exp:			INTLIT															{ $$ = t_exp_new_intlit($1); }
 		|	    FLOATLIT														{ $$ = t_exp_new_floatlit($1); }
 		|	    STRLIT															{ $$ = t_exp_new_stringlit($1); }
 		|	    BOOLLIT															{ $$ = t_exp_new_boollit($1); }
-		;
-
-exp:     	    lit																{ $$ = $1; }
 		|	    ID																{ $$ = t_exp_new_id($1); }
 		|	    exp LSBRACE INTLIT RSBRACE										{ $$ = t_exp_new_array($1, $3); }
 		|	    exp ADD exp														{ $$ = t_exp_new_op("+", $1, $3); }
@@ -126,11 +153,11 @@ exp:     	    lit																{ $$ = $1; }
 		|	    exp LEQ exp														{ $$ = t_exp_new_op("<=", $1, $3); }
 		|	    exp EQ exp														{ $$ = t_exp_new_op("==", $1, $3); }
 		|	    exp NEQ exp														{ $$ = t_exp_new_op("!=", $1, $3); }
-		|	    exp AND exp														{ $$ = t_exp_new_op("&&", $1, $3); }
-		|	    exp OR exp														{ $$ = t_exp_new_op("||", $1, $3); }
-		|	    NOT exp															{ $$ = t_exp_new_op("!", $1, NULL); }
-		|	    SUB exp  %prec NEG												{ $$ = t_exp_new_op("-", $1, NULL); }
-		|	    LPAR exp RPAR													{ $$ = t_exp_new_op("( )", $1, NULL); }
+		|	    exp AND exp														{ $$ = t_exp_new_op("AND", $1, $3); }
+		|	    exp OR exp														{ $$ = t_exp_new_op("OR", $1, $3); }
+		|	    NOT exp															{ $$ = t_exp_new_op("NOT", $2, NULL); }
+		|	    SUB exp  %prec NEG												{ $$ = t_exp_new_op("-", $2, NULL); }
+		|	    LPAR exp RPAR													{ $$ = t_exp_new_op("()", $2, NULL); }
 		|	    ID LPAR RPAR													{ $$ = t_exp_new_funct($1, NULL); }
 		|	    ID LPAR args RPAR												{ $$ = t_exp_new_funct($1, $3); }
 		|	    exp ASSIGN exp													{ $$ = t_exp_new_assign($1, $3); }

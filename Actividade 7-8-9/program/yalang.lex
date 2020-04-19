@@ -4,6 +4,7 @@
 %{
 #include <stdlib.h>
 #include <string.h>
+#include "yalangapt.h"
 #include "parser.h"
 
 int line   = 0;

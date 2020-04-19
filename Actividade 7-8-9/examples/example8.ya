@@ -15,4 +15,4 @@ func() : int {
    print(global3[3]);
 
    return(a+1);
-}
+};

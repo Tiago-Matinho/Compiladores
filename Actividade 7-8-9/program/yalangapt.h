@@ -1,6 +1,7 @@
-#ifndef YALANG_APT_H_
-#define YALANG_APT_H_
+#ifndef YALANGAPT_H_
+#define YALANGAPT_H_
 
+#include <stdbool.h>
 #define OP_LIM 3
 
 
@@ -36,15 +37,15 @@ t_decl t_decl_new_define(char *id, t_type type);
 
 t_stms t_stms_new(t_stm s, t_stms ss);
 
-t_stm t_stm_new_decl(t_decl decl);
+t_stm t_stm_new_decls(t_decls decls);
 t_stm t_stm_new_exp(t_exp exp);
-t_stm t_stm_new_ifelse(t_exp exp, t_stm stm1, t_stm stm2);
-t_stm t_stm_new_while(t_exp exp, t_stm stm);
+t_stm t_stm_new_ifelse(t_exp exp, t_stms stms1, t_stms stms2);
+t_stm t_stm_new_while(t_exp exp, t_stms stms);
 t_stm t_stm_new_return(t_exp exp);
 t_stm t_stm_new_next();
 
 t_exp t_exp_new_intlit(int i);
-t_exp t_exp_new_floatlit(float f);
+t_exp t_exp_new_floatlit(double f);
 t_exp t_exp_new_stringlit(char *s);
 t_exp t_exp_new_boollit(bool b);
 t_exp t_exp_new_id(char *id);
@@ -52,6 +53,8 @@ t_exp t_exp_new_op(char op[OP_LIM], t_exp exp1, t_exp exp2);
 t_exp t_exp_new_assign(t_exp exp1, t_exp exp2);
 t_exp t_exp_new_array(t_exp exp, int pos);
 t_exp t_exp_new_funct(char *id, t_args args);
+t_exp t_exp_new_print(t_args args);
+t_exp t_exp_new_input(char *id);
 
 t_argsdef t_argsdef_new(t_argdef a, t_argsdef as);
 
@@ -64,5 +67,8 @@ t_ids t_ids_new(char *id, t_ids ids);
 t_type t_type_new(char c);
 t_type t_type_new_id(char *id);
 t_type t_type_new_array(t_type type, int size);
+
+
+void t_decls_print(t_decls this);
 
 #endif
