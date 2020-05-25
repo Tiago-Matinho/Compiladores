@@ -34,6 +34,7 @@ typedef struct st_
     ST_Bucket array[MAX_CONTEXT];
 };
 
+ST st;
 
 /*********************************************************************|
 |                              BUCKETS                                |
@@ -88,7 +89,7 @@ ST_Bucket st_bucket_new_var_define(char *id, t_type yatype, int scope)
 |                              BUCKETS                                |
 |*********************************************************************/
 
-
+/*
 ST st_new()
 {
     ST ret = (ST) malloc(sizeof(*ret));
@@ -100,7 +101,7 @@ ST st_new()
 
     return ret;
 }
-
+*/
 
 unsigned long hash(unsigned char *str)
 {
@@ -114,7 +115,7 @@ unsigned long hash(unsigned char *str)
 }
 
 
-void st_insert(ST st, ST_Bucket new)
+void st_insert(ST_Bucket new)
 {
     int key = (int) hash(new->id) % MAX_CONTEXT;
 
@@ -134,7 +135,7 @@ void st_insert(ST st, ST_Bucket new)
 }
 
 
-ST_Bucket st_lookup(ST st, char *id)
+ST_Bucket st_lookup(char *id)
 {
     int key = (int) hash(id) % MAX_CONTEXT;
 
@@ -154,13 +155,35 @@ ST_Bucket st_lookup(ST st, char *id)
 }
 
 
-void st_new_scope(ST st)
+t_type st_lookup_type(char *id)
+{
+    ST_Bucket search = st_lookup(id);
+
+    if(search == NULL)
+        return NULL;
+
+    switch(search->kind){
+        case ST_VAR:
+            return search->u.var.yatype;
+        case ST_FUNCT:
+            return search->u.func.return_type;
+        case ST_DEFINE:
+            return search->u.define.yatype;
+        default:
+            printf("ERROR: wrong kind @ st_lookup_type\n");
+            exit(1);
+            return NULL;
+    }
+}
+
+
+void st_new_scope()
 {
     st->curScope++;
 }
 
 
-void st_drop_scope(ST st)
+void st_drop_scope()
 {
     ST_Bucket aux;
 
@@ -183,7 +206,7 @@ void st_drop_scope(ST st)
 |*********************************************************************/
 
 
-t_type t_exp_ant(t_exp node, ST st)
+t_type t_exp_ant(t_exp node)
 {
     if(node == NULL)
         exit(1);
@@ -195,75 +218,120 @@ t_type t_exp_ant(t_exp node, ST st)
             ret = t_type_new('i');
             break;
     
-    case EXP_FLOATLIT:
+        case EXP_FLOATLIT:
             ret = t_type_new('f');
             break;
     
-    case EXP_STRINGLIT:
+        case EXP_STRINGLIT:
             ret = t_type_new('s');
             break;
     
-    case EXP_BOOLLIT:
+        case EXP_BOOLLIT:
             ret = t_type_new('b');
             break;
     
-    case EXP_ID:
-            ST_Bucket search = st_lookup(st, node->u.id);
+        case EXP_ID:
+            ret = st_lookup_type(node->u.id);
 
-            if(search == NULL)
-                printf("ERROR: %s not previously defined\n", node->u.id);
-
-            switch(search->kind){
-                case ST_VAR:
-                    ret = search->u.var.yatype;
-                    break;
-
-                case ST_FUNCT:
-                    ret = search->u.func.return_type;
-                    break;
-
-                default:
-                    ret = search->u.define.yatype;
-                    break;
-            }
-        break;
+            if(ret == NULL)
+                printf("ERROR: %s not previously defined\n", node->u.id);            
+            break;
     
-    case EXP_ARRAY:
-        
-        break;
+        case EXP_ARRAY:
+            ret = t_exp_ant(node->u.array.exp);
+            break;
     
-    case EXP_BINOP:
-        printf("[.BINOP $%s$ ", this->u.binop.op);
-        t_exp_print(this->u.binop.exp1);
-        t_exp_print(this->u.binop.exp2);
-        printf("] ");
-        break;
+        case EXP_BINOP:
+            t_type l_type = t_exp_ant(node->u.binop.exp1);
+            t_type r_type = t_exp_ant(node->u.binop.exp2);
+
+            if(!compatible_types(l_type, r_type))
+                printf("ERROR: incompatible types\n");
+
+            ret = l_type;
+            break;
     
     case EXP_UNOP:
-        printf("[.UNOP $%s$ ", this->u.unop.op);
-        t_exp_print(this->u.unop.exp);
-        printf("] ");
-        break;
+            // TODO verificar se operação é válida
+            ret = t_exp_ant(node->u.unop.exp);
+            break;
     
     case EXP_ASSIGN:
-        printf("[.ASSIGN ");
-        t_exp_print(this->u.assign.exp1);
-        t_exp_print(this->u.assign.exp2);
-        printf("] ");
-        break;
+            t_type l_type = t_exp_ant(node->u.assign.exp1);
+            t_type r_type = t_exp_ant(node->u.assign.exp2);
+
+            if(!compatible_types(l_type, r_type))
+                printf("ERROR: incompatible types\n");
+
+            ret = l_type;
+            break;
     
     default:
-        printf("[.CALL [.ID $%s$ ] ", this->u.funct.id);
-        t_args_print(this->u.funct.args);
-        printf("] ");
-        break;
+            break;
     }
 
     printf("]\n");
 }
 
 
-void t_decl_ant(t_decl node, ST st)
+void t_stm_ant(t_stm node)
+{
+    if(node == NULL)
+        exit(1);
+
+    t_type boolean = t_type_new('b');
+    
+    switch(node->kind){
+        case STM_DECL:
+            t_decl_ant(node->u.decl);
+            break;
+        case STM_EXP:
+            t_exp_ant(node->u.exp);
+            break;
+        case STM_RET:
+            t_exp_ant(node->u.exp);
+            break;
+        case STM_IF:
+            if(!compatible_types(boolean, t_exp_ant(node->u._if.exp)))
+                printf("ERROR: expression not boolean\n");
+            t_stms_ant(node->u._if.stms);
+            break;
+        case STM_IFELSE:
+            if(compatible_types(boolean, t_exp_ant(node->u._ifelse.exp)))
+                printf("ERROR: expression not boolean\n");
+            t_stms_ant(node->u._ifelse.stms1);
+            t_stms_ant(node->u._ifelse.stms2);
+            break;
+        case STM_WHILE:
+            if(compatible_types(boolean, t_exp_ant(node->u._while.exp)))
+                printf("ERROR: expression not boolean\n");
+            t_stms_ant(node->u._while.stms);
+        default:
+            break;
+            
+    }
+}
+
+
+void t_stms_ant(t_stms node)
+{
+    if(node == NULL)
+        exit(1);
+    
+    switch(node->kind){
+        case STMS_SINGLE:
+            t_stm_ant(node->s);
+            break;
+    
+    default:
+        t_stm_ant(node->s);
+        t_stms_ant(node->ss);
+        break;
+    }
+}
+
+
+void t_decl_ant(t_decl node)
 {
     if(node == NULL)
         exit(1);
@@ -277,7 +345,7 @@ void t_decl_ant(t_decl node, ST st)
 
             // ciclo para casos de multiplos ids definidos
             while(cur_id != NULL){
-                search = st_lookup(st, cur_id->id); //procura se existe algo com o mesmo nome e scope
+                search = st_lookup(cur_id->id); //procura se existe algo com o mesmo nome e scope
                 printf("lookup(%s)\n", cur_id->id);
 
                 if(search != NULL){
@@ -286,7 +354,7 @@ void t_decl_ant(t_decl node, ST st)
                 }
                 else{   // adiciona a symbol table
                     new = st_bucket_new_var(cur_id->id, type, st->curScope);
-                    st_insert(st, new);
+                    st_insert(new);
                     printf("insert(%s)\n", cur_id->id);
                 }
                 cur_id = cur_id->ids;
@@ -295,7 +363,7 @@ void t_decl_ant(t_decl node, ST st)
 
         case DECL_VARINIT:
             t_type type = node->u.varinit.type;
-            t_type exp_type = t_exp_ant(node->u.varinit.value, st);
+            t_type exp_type = t_exp_ant(node->u.varinit.value);
 
             // TODO comparar exp
 
@@ -305,7 +373,7 @@ void t_decl_ant(t_decl node, ST st)
             
             // ciclo para casos de multiplos ids definidos
             while(cur_id != NULL){
-                search = st_lookup(st, cur_id->id); //procura se existe algo com o mesmo nome e scope
+                search = st_lookup(cur_id->id); //procura se existe algo com o mesmo nome e scope
                 printf("lookup(%s)\n", cur_id->id);
 
                 if(search != NULL){
@@ -314,7 +382,7 @@ void t_decl_ant(t_decl node, ST st)
                 }
                 else{   // adiciona a symbol table
                     new = st_bucket_new_var(cur_id->id, type, st->curScope);
-                    st_insert(st, new);
+                    st_insert(new);
                     printf("insert(%s)\n", cur_id->id);
                 }
                 cur_id = cur_id->ids;
@@ -326,7 +394,7 @@ void t_decl_ant(t_decl node, ST st)
             t_type return_type = node->u.funct.type;
             
             ST_Bucket search, new;
-            search = st_lookup(st, node->u.funct.id); //procura se existe algo com o mesmo nome
+            search = st_lookup(node->u.funct.id); //procura se existe algo com o mesmo nome
                 printf("lookup(%s)\n", node->u.funct.id);
 
             if(search != NULL)
@@ -334,13 +402,13 @@ void t_decl_ant(t_decl node, ST st)
 
             else{   // adiciona a symbol table
                 new = st_bucket_new_funct(node->u.funct.id, args, return_type, st->curScope);
-                st_insert(st, new);
+                st_insert(new);
                 printf("insert(%s)\n", node->u.funct.id);
             }
 
             st_new_scope(st);
 
-            t_stms_ant(node->u.funct.stms, st);
+            t_stms_ant(node->u.funct.stms);
 
             break;
 
@@ -349,7 +417,7 @@ void t_decl_ant(t_decl node, ST st)
             t_type return_type = node->u.funct.type;
             
             ST_Bucket search, new;
-            search = st_lookup(st, node->u.funct.id); //procura se existe algo com o mesmo nome
+            search = st_lookup(node->u.funct.id); //procura se existe algo com o mesmo nome
                 printf("lookup(%s)\n", node->u.funct.id);
 
             if(search != NULL)
@@ -357,7 +425,7 @@ void t_decl_ant(t_decl node, ST st)
 
             else{   // adiciona a symbol table
                 new = st_bucket_new_funct(node->u.funct.id, args, return_type, st->curScope);
-                st_insert(st, new);
+                st_insert(new);
                 printf("insert(%s)\n", node->u.funct.id);
             }
 
@@ -370,18 +438,18 @@ void t_decl_ant(t_decl node, ST st)
 
                 new = st_bucket_new_var(cur_arg->id, cur_arg->type, st->curScope);
 
-                st_insert(st, new);
+                st_insert(new);
                 printf("insert(%s)\n", cur_arg->id);
 
                 args = args->as;
             }
-            t_stms_ant(node->u.funct.stms, st);
+            t_stms_ant(node->u.funct.stms);
             break;
         
         default:
             ST_Bucket search, new;
 
-            search = st_lookup(st, node->u.define.id); //procura se existe algo com o mesmo nome
+            search = st_lookup(node->u.define.id); //procura se existe algo com o mesmo nome
                 printf("lookup(%s)\n", node->u.define.id);
 
             if(search != NULL)
@@ -389,7 +457,7 @@ void t_decl_ant(t_decl node, ST st)
 
             else{   // adiciona a symbol table
                 new = st_bucket_new_define(node->u.define.id, node->u.define.type, st->curScope);
-                st_insert(st, new);
+                st_insert(new);
                 printf("insert(%s)\n", node->u.define.id);
             }
             break;
@@ -398,21 +466,116 @@ void t_decl_ant(t_decl node, ST st)
 }
 
 
-void t_decls_ant(t_decls node, ST st)
+void t_decls_ant(t_decls node)
 {
     if(node == NULL)
         exit(1);
     
     switch(node->kind){
         case DECLS_SINGLE:
-            t_decl_ant(node->d, st);
+            t_decl_ant(node->d);
             break;
     
     default:
-        t_decl_ant(node->d, st);
-        t_decls_ant(node->ds, st);
+        t_decl_ant(node->d);
+        t_decls_ant(node->ds);
         break;
     }
 }
 
+
+bool compatible_types(t_type l_type, t_type r_type)
+{
+    switch(l_type->kind){
+        case T_INT:
+        case T_FLOAT:
+            switch(r_type->kind){
+                case T_INT:
+                case T_FLOAT:
+                    return true;
+                case T_STRING:
+                case T_BOOL:
+                case T_VOID:
+                    return false;
+                case T_ID:
+                    t_type search = st_lookup_type(r_type->id);
+
+                    if(search == NULL){
+                        printf("ERROR: %s not previously defined\n");
+                        return false;
+                    }
+                    return compatible_types(l_type, search);
+                case T_ARRAY:
+                    return compatible_types(l_type, r_type->array_type);
+                default:
+                    printf("ERROR: wrong type @ compatible_types\n");
+                    exit(1);
+                    return false;
+            }
+        case T_STRING:
+            switch(r_type->kind){
+                case T_INT:
+                case T_FLOAT:
+                case T_STRING:
+                    return true;
+                case T_BOOL:
+                case T_VOID:
+                    return false;
+                case T_ID:
+                    t_type search = st_lookup_type(r_type->id);
+
+                    if(search == NULL){
+                        printf("ERROR: %s not previously defined\n");
+                        return false;
+                    }
+                    return compatible_types(l_type, search);
+                case T_ARRAY:
+                    return compatible_types(l_type, r_type->array_type);
+                default:
+                    printf("ERROR: wrong type @ compatible_types\n");
+                    exit(1);
+                    return false;
+            }
+        case T_BOOL:
+            switch(r_type->kind){
+                case T_INT:
+                case T_BOOL:
+                    return true;
+                case T_FLOAT:
+                case T_STRING:
+                case T_VOID:
+                    return false;
+                case T_ID:
+                    t_type search = st_lookup_type(r_type->id);
+
+                    if(search == NULL){
+                        printf("ERROR: %s not previously defined\n");
+                        return false;
+                    }
+                    return compatible_types(l_type, search);
+                case T_ARRAY:
+                    return compatible_types(l_type, r_type->array_type);
+                default:
+                    printf("ERROR: wrong type @ compatible_types\n");
+                    exit(1);
+                    return false;
+            }
+        case T_VOID:
+            return true;
+        case T_ID:
+            t_type search = st_lookup_type(l_type->id);
+
+            if(search == NULL){
+                printf("ERROR: %s not previously defined\n");
+                return false;
+            }
+            return compatible_types(search, r_type);
+        case T_ARRAY:
+            return compatible_types(l_type->array_type, r_type);
+        default:
+            printf("ERROR: wrong type @ compatible_types\n");
+            exit(1);
+            return false;
+    }
+}
 

@@ -4,12 +4,6 @@
 #include <string.h>
 #include "yalangapt.h"
 
-
-/*********************************************************************|
-|                              STRUCTS                                |
-|*********************************************************************/
-
-
 // t_decls
 struct yalang_t_decls_
 {
@@ -66,7 +60,7 @@ struct yalang_t_stm_
     enum { STM_DECL, STM_EXP, STM_RET, STM_IF, STM_IFELSE, STM_WHILE, STM_NEXT } kind;
 
     union{
-        t_decl decl;
+        t_decls decls;
         t_exp exp;
         struct {
             t_exp exp;
@@ -91,7 +85,7 @@ struct yalang_t_stm_
 struct yalang_t_exp_
 {
     enum { EXP_INTLIT, EXP_FLOATLIT, EXP_STRINGLIT, EXP_BOOLLIT, EXP_ID, EXP_ARRAY,
-        EXP_BINOP, EXP_UNOP, EXP_ASSIGN, EXP_FUNCT } kind;
+        EXP_BINOP, EXP_UNOP, EXP_ASSIGN, EXP_FUNCT , EXP_PRINT, EXP_INPUT } kind;
 
     union {
         union {
@@ -198,29 +192,6 @@ t_decls t_decls_new(t_decl d, t_decls ds)
     return ret;
 }
 
-// decls_print
-void t_decls_print(t_decls this)
-{
-    if(this == NULL)
-        exit(1);
-
-    printf("[.DECLs ");
-    
-    switch(this->kind) {
-    case DECLS_SINGLE:
-        t_decl_print(this->d);
-        printf("$empty$ ");
-        break;
-    
-    default:
-        t_decl_print(this->d);
-        t_decls_print(this->ds);
-        break;
-    }
-
-    printf("]\n");    
-}
-
 
 /*********************************************************************|
 |                                DECL                                 |
@@ -278,54 +249,6 @@ t_decl t_decl_new_define(char *id, t_type type)
     return ret;
 }
 
-// decl_print
-void t_decl_print(t_decl this)
-{
-    if(this == NULL)
-        exit(1);
-
-    switch(this->kind) {
-    case DECL_VAR:
-        printf("[.DECL(var) ");
-        t_ids_print(this->u.var.ids);
-        t_type_print(this->u.var.type);
-        break;
-
-    case DECL_VARINIT:
-        printf("[.DECL(varinit) ");
-        t_ids_print(this->u.varinit.ids);
-        t_type_print(this->u.varinit.type);
-        printf("[.VALUE ");
-        t_exp_print(this->u.varinit.value);
-        printf("] ");
-        break;
-
-    case DECL_FUNCT_VOID:
-        printf("[.DECL(funct) [.ID $%s$ ] [.ARGs $empty$ ] ", this->u.funct.id);
-        t_type_print(this->u.funct.type);
-        printf("[.BODY ");
-        t_stms_print(this->u.funct.stms);
-        printf("] ");
-        break;
-
-    case DECL_FUNCT:
-        printf("[.DECL(funct) [.ID $%s$ ] ", this->u.funct.id);
-        t_argsdef_print(this->u.funct.args);
-        t_type_print(this->u.funct.type);
-        printf("[.BODY ");
-        t_stms_print(this->u.funct.stms);
-        printf("] ");
-        break;
-    
-    default:
-        printf("[.DECL(define) [.ID $%s$ ] ", this->u.define.id);
-        t_type_print(this->u.define.type);
-        break;
-    }
-
-    printf("]\n");
-}
-
 
 /*********************************************************************|
 |                                STMS                                 |
@@ -347,41 +270,18 @@ t_stms t_stms_new(t_stm s, t_stms ss)
     return ret;
 }
 
-// stms_print
-void t_stms_print(t_stms this)
-{
-    if(this == NULL)
-        exit(1);
-    
-    printf("[.STMs ");
-
-    switch(this->kind) {
-    case STMS_SINGLE:
-        t_stm_print(this->s);
-        printf("$empty$ ");
-        break;
-    
-    default:
-        t_stm_print(this->s);
-        t_stms_print(this->ss);
-        break;
-    }
-
-    printf("]\n");
-}
-
 
 /*********************************************************************|
 |                                STM                                  |
 |*********************************************************************/
 
 
-t_stm t_stm_new_decl(t_decl decl)
+t_stm t_stm_new_decls(t_decls decls)
 {   
     t_stm ret = (t_stm) malloc( sizeof(*ret));
 
     ret->kind = STM_DECL;
-    ret->u.decl = decl;
+    ret->u.decls = decls;
 
     return ret;
 }
@@ -446,62 +346,6 @@ t_stm t_stm_new_next()
     ret->kind = STM_NEXT;
 
     return ret;
-}
-
-// stm_print
-void t_stm_print(t_stm this)
-{
-    if(this == NULL)
-        exit(1);
-        
-
-    switch(this->kind) {
-    case STM_DECL:
-        t_decl_print(this->u.decl);
-        break;
-
-    case STM_EXP:
-        printf("[.STM ");
-        t_exp_print(this->u.exp);
-        printf("]\n");
-        break;
-    
-    case STM_RET:
-        printf("[.STM [.RETURN ");
-        t_exp_print(this->u.exp);
-        printf("] ]\n");
-        break;
-
-    case STM_IF:
-        printf("[.STM [.IF [.CONDITION ");
-        t_exp_print(this->u._if.exp);
-        printf("] [.THEN ");
-        t_stms_print(this->u._if.stms);
-        printf("] ] ]\n");
-        break;
-
-    case STM_IFELSE:
-        printf("[.STM [.IFELSE [.CONDITION ");
-        t_exp_print(this->u._ifelse.exp);
-        printf("] [.THEN ");
-        t_stms_print(this->u._ifelse.stms1);
-        printf("] [.ELSE ");
-        t_stms_print(this->u._ifelse.stms2);
-        printf("] ] ]\n");
-        break;
-
-    case STM_WHILE:
-        printf("[.STM [.WHILE [.CONDITION ");
-        t_exp_print(this->u._while.exp);
-        printf("] [.DO ");
-        t_stms_print(this->u._while.stms);
-        printf("] ] ]\n");
-        break;
-
-    default:
-        printf("[.STM $next$ ]\n");
-        break;
-    }
 }
 
 
@@ -616,73 +460,26 @@ t_exp t_exp_new_funct(char *id, t_args args)
     return ret;
 }
 
-// exp_print
-void t_exp_print(t_exp this)
+t_exp t_exp_new_print(t_args args)
 {
-    if(this == NULL)
-        exit(1);
+    t_exp ret = (t_exp) malloc( sizeof(*ret));
 
-    printf("[.EXP ");
+    ret->kind = EXP_PRINT;
+    ret->u.print.args = args;
 
-    switch(this->kind) {
-    case EXP_INTLIT:
-        printf("[.INTLIT $%d$ ] ", this->u.lit.int_val);
-        break;
-    
-    case EXP_FLOATLIT:
-        printf("[.FLOATLIT $%f$ ] ", this->u.lit.float_val);
-        break;
-    
-    case EXP_STRINGLIT:
-        printf("[.STRINGLIT $");
-        strprint(this->u.lit.string_val);
-        printf("$ ] ");
-        break;
-    
-    case EXP_BOOLLIT:
-        printf("[.BOOLLIT ");
-        this->u.lit.bool_val ? printf("$true$ ") : printf("$false$ ");
-        printf("] ");
-        break;
-    
-    case EXP_ID:
-        printf("[.ID $%s$ ] ", this->u.id);
-        break;
-    
-    case EXP_ARRAY:
-        printf("[.ARRAY ");
-        t_exp_print(this->u.array.exp);
-        printf("[.POS $%d$ ] ] ", this->u.array.pos);
-        break;
-    
-    case EXP_BINOP:
-        printf("[.BINOP $%s$ ", this->u.binop.op);
-        t_exp_print(this->u.binop.exp1);
-        t_exp_print(this->u.binop.exp2);
-        printf("] ");
-        break;
-    
-    case EXP_UNOP:
-        printf("[.UNOP $%s$ ", this->u.unop.op);
-        t_exp_print(this->u.unop.exp);
-        printf("] ");
-        break;
-    
-    case EXP_ASSIGN:
-        printf("[.ASSIGN ");
-        t_exp_print(this->u.assign.exp1);
-        t_exp_print(this->u.assign.exp2);
-        printf("] ");
-        break;
-    
-    default:
-        printf("[.CALL [.ID $%s$ ] ", this->u.funct.id);
-        t_args_print(this->u.funct.args);
-        printf("] ");
-        break;
-    }
+    return ret;
+}
 
-    printf("]\n");
+
+t_exp t_exp_new_input(char* id)
+{
+
+    t_exp ret = (t_exp) malloc( sizeof(*ret));
+
+    ret->kind = EXP_INPUT;
+    ret->u.id = id;
+
+    return ret;
 }
 
 
@@ -706,29 +503,6 @@ t_argsdef t_argsdef_new(t_argdef a, t_argsdef as)
     return ret;
 }
 
-// argsdef_print
-void t_argsdef_print(t_argsdef this)
-{
-    if(this == NULL)
-        exit(1);
-
-    switch(this->kind) {
-    case ARGS_SINGLE:
-        printf("[.ARG ");
-        t_argdef_print(this->a);
-        break;
-    
-    default:
-        printf("[.ARGs [.ARG ");
-        t_argdef_print(this->a);
-        printf("] ");
-        t_argsdef_print(this->as);
-        break;
-    }
-
-    printf("]\n");
-}
-
 
 /*********************************************************************|
 |                               ARGDEF                                |
@@ -745,16 +519,6 @@ t_argdef t_argdef_new(char *id, t_type type)
     return ret;
 }
 
-// argdef_print
-void t_argdef_print(t_argdef this)
-{
-    if(this == NULL)
-        exit(1);
-
-    printf("[.ID $%s$ ] ", this->id);
-    t_type_print(this->type);
-}
-
 
 /*********************************************************************|
 |                                ARGS                                 |
@@ -769,27 +533,6 @@ t_args t_args_new(t_exp exp, t_args a)
     ret->as = a;
 
     return ret;
-}
-
-// args_print
-void t_args_print(t_args this)
-{
-    if(this == NULL)
-        exit(1);
-
-   if(this->as == NULL) {
-        printf("[.ARG ");
-        t_exp_print(this->exp);
-    }
-
-    else {
-        printf("[.ARGs [.ARG ");
-        t_exp_print(this->exp);
-        printf("] ");
-        t_args_print(this->as);
-    }
-
-    printf("]\n");
 }
 
 
@@ -811,28 +554,6 @@ t_ids t_ids_new(char *id, t_ids ids)
     ret->ids = ids;
 
     return ret;
-}
-
-// ids_print
-void t_ids_print(t_ids this)
-{
-    if(this == NULL)
-        exit(1);
-
-
-    switch(this->kind) {
-    case IDS_SINGLE:
-        printf("[.ID $%s$ ]", this->id);
-        break;
-    
-    default:
-        printf("[.IDs ");
-        printf("[.ID $%s$ ] ", this->id);
-        t_ids_print(this->ids);
-        printf("]\n");
-        break;
-    }
-
 }
 
 
@@ -898,7 +619,55 @@ t_type t_type_new_array(t_type type, int size)
     return ret;
 }
 
-// type_print
+
+/*********************************************************************|
+|                               PRINTS                                |
+|*********************************************************************/
+
+
+void strprint(char *str)
+{
+    while(*str != '\0') {
+        switch(*str) {
+        case ' ':
+            printf("\\ ");
+            break;
+        
+        case '\\':
+            printf("\\textbackslash ");
+            break;
+            
+        default:
+            printf("%c", *str);
+            break;
+        }
+
+        str++;
+    }
+    printf("");
+}
+
+void t_ids_print(t_ids this)
+{
+    if(this == NULL)
+        exit(1);
+
+
+    switch(this->kind) {
+    case IDS_SINGLE:
+        printf("[.ID $%s$ ]", this->id);
+        break;
+    
+    default:
+        printf("[.IDs ");
+        printf("[.ID $%s$ ] ", this->id);
+        t_ids_print(this->ids);
+        printf("]\n");
+        break;
+    }
+
+}
+
 void t_type_print(t_type this)
 {
     if(this == NULL)
@@ -941,30 +710,277 @@ void t_type_print(t_type this)
     printf("]\n");
 }
 
-
-/*********************************************************************|
-|                               PRINTS                                |
-|*********************************************************************/
-
-
-void strprint(char *str)
+void t_exp_print(t_exp this)
 {
-    while(*str != '\0') {
-        switch(*str) {
-        case ' ':
-            printf("\\ ");
-            break;
-        
-        case '\\':
-            printf("\\textbackslash ");
-            break;
-            
-        default:
-            printf("%c", *str);
-            break;
-        }
+    if(this == NULL)
+        exit(1);
 
-        str++;
+    printf("[.EXP ");
+
+    switch(this->kind) {
+    case EXP_INTLIT:
+        printf("[.INTLIT $%d$ ] ", this->u.lit.int_val);
+        break;
+    
+    case EXP_FLOATLIT:
+        printf("[.FLOATLIT $%f$ ] ", this->u.lit.float_val);
+        break;
+    
+    case EXP_STRINGLIT:
+        printf("[.STRINGLIT $");
+        strprint(this->u.lit.string_val);
+        printf("$ ] ");
+        break;
+    
+    case EXP_BOOLLIT:
+        printf("[.BOOLLIT ");
+        this->u.lit.bool_val ? printf("$true$ ") : printf("$false$ ");
+        printf("] ");
+        break;
+    
+    case EXP_ID:
+        printf("[.ID $%s$ ] ", this->u.id);
+        break;
+    
+    case EXP_ARRAY:
+        printf("[.ARRAY ");
+        t_exp_print(this->u.array.exp);
+        printf("[.POS $%d$ ] ] ");
+        break;
+    
+    case EXP_BINOP:
+        printf("[.BINOP $%s$ ", this->u.binop.op);
+        t_exp_print(this->u.binop.exp1);
+        t_exp_print(this->u.binop.exp2);
+        printf("] ");
+        break;
+    
+    case EXP_UNOP:
+        printf("[.UNOP $%s$ ", this->u.unop.op);
+        t_exp_print(this->u.unop.exp);
+        printf("] ");
+        break;
+    
+    case EXP_ASSIGN:
+        printf("[.ASSIGN ");
+        t_exp_print(this->u.assign.exp1);
+        t_exp_print(this->u.assign.exp2);
+        printf("] ");
+        break;
+    
+    case EXP_PRINT:
+        printf("[.SYSCALL(print) ");
+        t_args_print(this->u.print.args);
+        printf("] ");
+        break;
+
+    case EXP_INPUT:
+        printf("[.SYSCALL(input) $%s$ ] ", this->u.id);
+        break;
+
+    default:
+        printf("[.CALL [.ID $%s$ ] ", this->u.funct.id);
+        t_args_print(this->u.funct.args);
+        printf("] ");
+        break;
     }
-    printf("");
+
+    printf("]\n");
+}
+
+void t_args_print(t_args this)
+{
+    if(this == NULL)
+        exit(1);
+
+   if(this->as == NULL) {
+        printf("[.ARG ");
+        t_exp_print(this->exp);
+    }
+
+    else {
+        printf("[.ARGs [.ARG ");
+        t_exp_print(this->exp);
+        printf("] ");
+        t_args_print(this->as);
+    }
+
+    printf("]\n");
+}
+
+void t_decls_print(t_decls this)
+{
+    if(this == NULL)
+        exit(1);
+
+    printf("[.DECLs ");
+    
+    switch(this->kind) {
+    case DECLS_SINGLE:
+        t_decl_print(this->d);
+        printf("$empty$ ");
+        break;
+    
+    default:
+        t_decl_print(this->d);
+        t_decls_print(this->ds);
+        break;
+    }
+
+    printf("]\n");    
+}
+
+void t_decl_print(t_decl this)
+{
+    if(this == NULL)
+        exit(1);
+
+    switch(this->kind) {
+    case DECL_VAR:
+        printf("[.DECL(var) ");
+        t_ids_print(this->u.var.ids);
+        t_type_print(this->u.var.type);
+        break;
+
+    case DECL_VARINIT:
+        printf("[.DECL(varinit) ");
+        t_ids_print(this->u.varinit.ids);
+        t_type_print(this->u.varinit.type);
+        printf("[.VALUE ");
+        t_exp_print(this->u.varinit.value);
+        printf("] ");
+        break;
+
+    case DECL_FUNCT_VOID:
+        printf("[.DECL(funct) [.ID $%s$ ] [.ARGs $empty$ ] ", this->u.funct.id);
+        t_type_print(this->u.funct.type);
+        printf("[.BODY ");
+        t_stms_print(this->u.funct.stms);
+        printf("] ");
+        break;
+
+    case DECL_FUNCT:
+        printf("[.DECL(funct) [.ID $%s$ ] ", this->u.funct.id);
+        t_argsdef_print(this->u.funct.args);
+        t_type_print(this->u.funct.type);
+        printf("[.BODY ");
+        t_stms_print(this->u.funct.stms);
+        printf("] ");
+        break;
+    
+    default:
+        printf("[.DECL(define) [.ID $%s$ ] ", this->u.define.id);
+        t_type_print(this->u.define.type);
+        break;
+    }
+
+    printf("]\n");
+}
+
+void t_stms_print(t_stms this)
+{
+    if(this == NULL)
+        exit(1);
+    
+    printf("[.STMs ");
+
+    switch(this->kind) {
+    case STMS_SINGLE:
+        t_stm_print(this->s);
+        printf("$empty$ ");
+        break;
+    
+    default:
+        t_stm_print(this->s);
+        t_stms_print(this->ss);
+        break;
+    }
+
+    printf("]\n");
+}
+
+void t_stm_print(t_stm this)
+{
+    if(this == NULL)
+        exit(1);
+        
+
+    switch(this->kind) {
+    case STM_DECL:
+        t_decls_print(this->u.decls);
+        break;
+
+    case STM_EXP:
+        printf("[.STM ");
+        t_exp_print(this->u.exp);
+        printf("]\n");
+        break;
+    
+    case STM_RET:
+        printf("[.STM [.RETURN ");
+        t_exp_print(this->u.exp);
+        printf("] ]\n");
+        break;
+
+    case STM_IF:
+        printf("[.STM [.IF [.CONDITION ");
+        t_exp_print(this->u._if.exp);
+        printf("] [.THEN ");
+        t_stms_print(this->u._if.stms);
+        printf("] ] ]\n");
+        break;
+
+    case STM_IFELSE:
+        printf("[.STM [.IFELSE [.CONDITION ");
+        t_exp_print(this->u._ifelse.exp);
+        printf("] [.THEN ");
+        t_stms_print(this->u._ifelse.stms1);
+        printf("] [.ELSE ");
+        t_stms_print(this->u._ifelse.stms2);
+        printf("] ] ]\n");
+        break;
+
+    case STM_WHILE:
+        printf("[.STM [.WHILE [.CONDITION ");
+        t_exp_print(this->u._while.exp);
+        printf("] [.DO ");
+        t_stms_print(this->u._while.stms);
+        printf("] ] ]\n");
+        break;
+
+    default:
+        printf("[.STM $next$ ]\n");
+        break;
+    }
+}
+
+void t_argsdef_print(t_argsdef this)
+{
+    if(this == NULL)
+        exit(1);
+
+    switch(this->kind) {
+    case ARGS_SINGLE:
+        printf("[.ARG ");
+        t_argdef_print(this->a);
+        break;
+    
+    default:
+        printf("[.ARGs [.ARG ");
+        t_argdef_print(this->a);
+        printf("] ");
+        t_argsdef_print(this->as);
+        break;
+    }
+
+    printf("]\n");
+}
+
+void t_argdef_print(t_argdef this)
+{
+    if(this == NULL)
+        exit(1);
+
+    printf("[.ID $%s$ ] ", this->id);
+    t_type_print(this->type);
 }

@@ -35,12 +35,11 @@ void yyerror (char const *);
 %token	<ival>          INTLIT
 %token  <b>				BOOLLIT
 %token	<dval>          FLOATLIT
-%token	<str>           STRLIT
-%token	<str>           ID
+%token	<str>           STRLIT ID
 			
 %token                  COLON
 				    
-%token			DEFINE RETURN STRUCT WHILE IF THEN ELSE DO NEXT BREAK
+%token			DEFINE RETURN STRUCT WHILE IF THEN ELSE DO NEXT BREAK PRINT INPUT
 			
 %token			T_INT T_FLOAT T_STRING T_BOOL T_VOID /* atomic types */
 			
@@ -118,7 +117,7 @@ stms:    	    stm																{ $$ = t_stms_new($1, NULL); }
 		|	    stm stms														{ $$ = t_stms_new($1, $2); }
 		;
 
-stm:     	    decl															{ $$ = t_stm_new_decl($1); }
+stm:     	    decls															{ $$ = t_stm_new_decls($1); }
 		|	    exp SEMI														{ $$ = t_stm_new_exp($1); }
 		|	    RETURN exp SEMI													{ $$ = t_stm_new_return($2); }
 		|	    IF exp THEN LCBRACE stms RCBRACE SEMI							{ $$ = t_stm_new_ifelse($2, $5, NULL); }
@@ -136,8 +135,8 @@ type:    	    T_INT															{ $$ = t_type_new('i'); }
 		|	    type LSBRACE INTLIT RSBRACE										{ $$ = t_type_new_array($1, $3); }
 		;
 
-exp:		    ID LPAR RPAR													{ $$ = t_exp_new_funct($1, NULL); }
-		|	    ID LPAR args RPAR												{ $$ = t_exp_new_funct($1, $3); }
+exp:     	    PRINT LPAR args RPAR											{ $$ = t_exp_new_print($3); }
+		|		INPUT LPAR ID RPAR												{ $$ = t_exp_new_input($3); }
 		|		INTLIT															{ $$ = t_exp_new_intlit($1); }
 		|	    FLOATLIT														{ $$ = t_exp_new_floatlit($1); }
 		|	    STRLIT															{ $$ = t_exp_new_stringlit($1); }
@@ -161,6 +160,8 @@ exp:		    ID LPAR RPAR													{ $$ = t_exp_new_funct($1, NULL); }
 		|	    NOT exp															{ $$ = t_exp_new_op("NOT", $2, NULL); }
 		|	    SUB exp  %prec NEG												{ $$ = t_exp_new_op("-", $2, NULL); }
 		|	    LPAR exp RPAR													{ $$ = t_exp_new_op("()", $2, NULL); }
+		|	    ID LPAR RPAR													{ $$ = t_exp_new_funct($1, NULL); }
+		|	    ID LPAR args RPAR												{ $$ = t_exp_new_funct($1, $3); }
 		|	    exp ASSIGN exp													{ $$ = t_exp_new_assign($1, $3); }
 		;
 %%

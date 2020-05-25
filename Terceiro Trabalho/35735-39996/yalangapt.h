@@ -37,7 +37,7 @@ t_decl t_decl_new_define(char *id, t_type type);
 
 t_stms t_stms_new(t_stm s, t_stms ss);
 
-t_stm t_stm_new_decl(t_decl decl);
+t_stm t_stm_new_decls(t_decls decls);
 t_stm t_stm_new_exp(t_exp exp);
 t_stm t_stm_new_ifelse(t_exp exp, t_stms stms1, t_stms stms2);
 t_stm t_stm_new_while(t_exp exp, t_stms stms);
