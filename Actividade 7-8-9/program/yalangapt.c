@@ -85,7 +85,7 @@ struct yalang_t_stm_
 struct yalang_t_exp_
 {
     enum { EXP_INTLIT, EXP_FLOATLIT, EXP_STRINGLIT, EXP_BOOLLIT, EXP_ID, EXP_ARRAY,
-        EXP_BINOP, EXP_UNOP, EXP_ASSIGN, EXP_FUNCT , EXP_PRINT, EXP_INPUT } kind;
+        EXP_BINOP, EXP_UNOP, EXP_ASSIGN, EXP_FUNCT } kind;
 
     union {
         union {
@@ -122,10 +122,6 @@ struct yalang_t_exp_
             char *id;
             t_args args;
         } funct;
-
-        struct {
-            t_args args;
-        } print;
     } u;
 };
 
@@ -460,28 +456,6 @@ t_exp t_exp_new_funct(char *id, t_args args)
     return ret;
 }
 
-t_exp t_exp_new_print(t_args args)
-{
-    t_exp ret = (t_exp) malloc( sizeof(*ret));
-
-    ret->kind = EXP_PRINT;
-    ret->u.print.args = args;
-
-    return ret;
-}
-
-
-t_exp t_exp_new_input(char* id)
-{
-
-    t_exp ret = (t_exp) malloc( sizeof(*ret));
-
-    ret->kind = EXP_INPUT;
-    ret->u.id = id;
-
-    return ret;
-}
-
 
 /*********************************************************************|
 |                              ARGSDEF                                |
@@ -768,16 +742,6 @@ void t_exp_print(t_exp this)
         printf("] ");
         break;
     
-    case EXP_PRINT:
-        printf("[.SYSCALL(print) ");
-        t_args_print(this->u.print.args);
-        printf("] ");
-        break;
-
-    case EXP_INPUT:
-        printf("[.SYSCALL(input) $%s$ ] ", this->u.id);
-        break;
-
     default:
         printf("[.CALL [.ID $%s$ ] ", this->u.funct.id);
         t_args_print(this->u.funct.args);
