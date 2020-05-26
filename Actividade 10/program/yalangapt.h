@@ -2,6 +2,7 @@
 #define YALANGAPT_H_
 
 #include <stdbool.h>
+#include "symbol_table.h"
 #define OP_LIM 3
 
 
@@ -70,5 +71,14 @@ t_type t_type_new_array(t_type type, int size);
 
 
 void t_decls_print(t_decls this);
+
+ST st_new();
+ST_Bucket st_bucket_new_print();
+ST_Bucket st_bucket_new_input();
+
+void st_insert(ST_Bucket new, ST st);
+void st_new_scope(ST st);
+
+void t_decls_ant(t_decls node, ST st);
 
 #endif

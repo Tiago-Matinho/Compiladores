@@ -80,12 +80,18 @@ void yyerror (char const *);
 
 %%
 
-program:  		/*    empty */													{ print_prologue();
+program:  		/*    empty */													{print_prologue();
 																				printf("$empty$");
 						  														print_epilogue(); }
-		|	    decls  															{ print_prologue();
-						  														t_decls_print($1);
-						  														print_epilogue(); }
+		|	    decls  															{ //print_prologue();
+						  														//t_decls_print($1);
+																				ST st = st_new();
+																				st_insert(st_bucket_new_print(), st);
+																				st_insert(st_bucket_new_input(), st);
+																				st_new_scope(st);
+						  														t_decls_ant($1, st);
+						  														//print_epilogue();
+																				  }
 		;
 
 decls:   	    decl															{ $$ = t_decls_new($1, NULL); }

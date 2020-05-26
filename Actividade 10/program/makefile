@@ -15,7 +15,7 @@ parser.c: yalang.y
 lexer.c: yalang.lex
 	flex -o lexer.c yalang.lex
 
-yalangapt.o: yalangapt.h yalangapt.c
+yalangapt.o: symbol_table.h yalangapt.h yalangapt.c
 	gcc $(CFLAGS) -c yalangapt.c
 
 latex.o: latex.h latex.c
