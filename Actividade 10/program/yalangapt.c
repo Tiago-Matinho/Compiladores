@@ -459,7 +459,7 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
                 case T_STRING:
                 case T_BOOL:
                     return false;
-                case T_ID:
+                case T_ID: //FIXME
                     search = st_lookup_type(r_type->id, st);
 
                     if(search == NULL){
@@ -817,27 +817,27 @@ t_type t_exp_ant(t_exp node, ST st)
             if(search == NULL)
                 printf("ERROR: function %s not previously defined\n", node->u.funct.id);
             else{
-                    cur_argdef = search->u.func.args;
-                    cur_arg = node->u.funct.args;
-                    while(cur_argdef != NULL){
-                        if(cur_arg == NULL){
-                            printf("ERROR: few arguments in fuction %s\n", node->u.funct.id);
-                            break;
-                        }
-
-                        l_type = t_exp_ant(cur_arg->exp, st);
-
-                        if(!compatible_types(cur_argdef->a->type, l_type, st))
-                            printf("ERROR: wrong arg type %s\n", cur_argdef->a->id);
-
-                        cur_argdef = cur_argdef->as;
-                        cur_arg = cur_arg->as;
+                cur_argdef = search->u.func.args;
+                cur_arg = node->u.funct.args;
+                while(cur_argdef != NULL){
+                    if(cur_arg == NULL){
+                        printf("ERROR: few arguments in function %s\n", node->u.funct.id);
+                        break;
                     }
 
-                    if(cur_arg != NULL)
-                        printf("ERROR: too many arguments in fuction %s\n", node->u.funct.id);
+                    l_type = t_exp_ant(cur_arg->exp, st);
 
-                    ret = search->u.func.return_type;
+                    if(!compatible_types(cur_argdef->a->type, l_type, st))
+                        printf("ERROR: wrong arg type %s\n", cur_argdef->a->id);
+
+                    cur_argdef = cur_argdef->as;
+                    cur_arg = cur_arg->as;
+                }
+
+                if(cur_arg != NULL)
+                    printf("ERROR: too many arguments in function %s\n", node->u.funct.id);
+
+                ret = search->u.func.return_type;
                 }
         default:
             break;
