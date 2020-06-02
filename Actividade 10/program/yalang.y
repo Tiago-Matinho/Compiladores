@@ -166,7 +166,7 @@ exp:		    ID LPAR RPAR													{ $$ = t_exp_new_funct($1, NULL); }
 		|	    exp OR exp														{ $$ = t_exp_new_op("OR", $1, $3); }
 		|	    NOT exp															{ $$ = t_exp_new_op("NOT", $2, NULL); }
 		|	    SUB exp  %prec NEG												{ $$ = t_exp_new_op("-", $2, NULL); }
-		|	    LPAR exp RPAR													{ $$ = t_exp_new_op("()", $2, NULL); }
+		|	    LPAR exp RPAR													{ $$ = $2; }
 		|	    exp ASSIGN exp													{ $$ = t_exp_new_assign($1, $3); }
 		;
 %%

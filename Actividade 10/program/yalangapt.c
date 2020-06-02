@@ -458,15 +458,8 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
                     return true;
                 case T_STRING:
                 case T_BOOL:
+                case T_ID:
                     return false;
-                case T_ID: //FIXME
-                    search = st_lookup_type(r_type->id, st);
-
-                    if(search == NULL){
-                        printf("ERROR: id not previously defined\n");
-                        return false;
-                    }
-                    return compatible_types(l_type, search, st);
                 case T_ARRAY:
                     return compatible_types(l_type, r_type->array_type, st);
                 default:
@@ -482,15 +475,8 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
                 case T_VOID:
                     return true;
                 case T_BOOL:
-                    return false;
                 case T_ID:
-                    search = st_lookup_type(r_type->id, st);
-
-                    if(search == NULL){
-                        printf("ERROR: id not previously defined\n");
-                        return false;
-                    }
-                    return compatible_types(l_type, search, st);
+                    return false;
                 case T_ARRAY:
                     return compatible_types(l_type, r_type->array_type, st);
                 default:
@@ -506,15 +492,8 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
                     return true;
                 case T_FLOAT:
                 case T_STRING:
-                    return false;
                 case T_ID:
-                    search = st_lookup_type(r_type->id, st);
-
-                    if(search == NULL){
-                        printf("ERROR: id not previously defined\n");
-                        return false;
-                    }
-                    return compatible_types(l_type, search, st);
+                    return false;
                 case T_ARRAY:
                     return compatible_types(l_type, r_type->array_type, st);
                 default:
@@ -525,13 +504,7 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
         case T_VOID:
             return true;
         case T_ID:
-            search = st_lookup_type(l_type->id, st);
-
-            if(search == NULL){
-                printf("ERROR: id not previously defined\n");
-                return false;
-            }
-            return compatible_types(search, r_type, st);
+            return strcmp(l_type->id, r_type->id) == 0;
         case T_ARRAY:
             return compatible_types(l_type->array_type, r_type, st);
 
@@ -797,8 +770,31 @@ t_type t_exp_ant(t_exp node, ST st)
             break;
     
         case EXP_UNOP:
-            // TODO verificar se operação é válida
-            ret = t_exp_ant(node->u.unop.exp, st);
+
+            l_type = t_exp_ant(node->u.unop.exp, st);
+
+            switch(node->u.unop.op[0]){
+                case '-':
+                    if(l_type->kind == T_FLOAT)
+                        ret = t_type_new('f');
+                    else if(l_type->kind == T_INT)
+                        ret = t_type_new('i');
+                    else{
+                        printf("ERROR: incompatible types\n");
+                        ret =  t_type_new('v');
+                    }
+                    break;
+
+                default:    //not
+                    if(l_type->kind == T_BOOL)
+                        ret = t_type_new('b');
+                    else{
+                        printf("ERROR: incompatible types\n");
+                        ret =  t_type_new('v');
+                    }
+                    break;
+
+            }
             break;
         
         case EXP_ASSIGN:
