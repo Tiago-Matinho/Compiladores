@@ -6,8 +6,8 @@ LIBS = -lm
 OFILES = t_exp.o
 
 
-all: parser.c lexer.c parser.h yalang.o latex.o
-	gcc $(CFLAGS) parser.c lexer.c yalang.o latex.o -o $(OUTFILE) $(LIBS)
+all: parser.c lexer.c parser.h yalangcom.o latex.o
+	gcc $(CFLAGS) parser.c lexer.c yalangcom.o latex.o -o $(OUTFILE) $(LIBS)
 
 parser.c: yalang.y
 	bison -y -d yalang.y -o parser.c
@@ -15,8 +15,8 @@ parser.c: yalang.y
 lexer.c: yalang.lex
 	flex -o lexer.c yalang.lex
 
-yalang.o: yalang.h yalang.c
-	gcc $(CFLAGS) -c yalang.c
+yalangcom.o: yalangcom.h yalangcom.c
+	gcc $(CFLAGS) -c yalangcom.c
 
 latex.o: latex.h latex.c
 	gcc $(CFLAGS) -c latex.c

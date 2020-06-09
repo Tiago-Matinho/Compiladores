@@ -1,11 +1,12 @@
 %{
 
 #include <stdio.h>
-#include "yalang.h"
 #include <stdbool.h>
+#include <stdlib.h>
+#include "yalangcom.h"
 #include "latex.h"  /* print_prologue(), etc. */
 
-#define APT_FILENAME "apt"
+#define APT_FILENAME "apt.tex"
 
 extern int yylineno;
 extern FILE *yyin;
@@ -82,19 +83,19 @@ void yyerror (char const *);
 
 %%
 
-program:  		/*    empty */													{print_prologue();
-																				printf("$empty$");
-						  														print_epilogue(); }
+program:  		/*    empty */													{}
 		|	    decls {
 
-					FILE* apt_fp = open(APT_FILENAME, "w+");
+					FILE* apt_fp = fopen(APT_FILENAME, "w+");
 
 					if(apt_fp == NULL)
 						exit(1);
 
 					print_prologue(apt_fp);
-					t_decls_print($1, apt_fp);
+					t_decls_print(apt_fp, $1);
 					print_epilogue(apt_fp);
+
+					fclose(apt_fp);
 
 					ST st = st_new();
 					st_insert(st_bucket_new_print(), st);
@@ -103,12 +104,7 @@ program:  		/*    empty */													{print_prologue();
 					t_decls_ant($1, st);
 
 					st_drop_scope(st);
-																			
-					if(st->error)
-						exit(1);
-
 					
-
 				}
 		;
 

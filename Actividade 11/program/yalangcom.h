@@ -1,9 +1,12 @@
-#ifndef YALANG_H_
-#define YALANG_H_
+#ifndef YALANGCOM_H_
+#define YALANGCOM_H_
 
+#include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 #define OP_LIM 3
-#define MAX_CONTEXT 1009
+#define MAX_CONTEXT 53
 
 
 /*********************************************************************/
@@ -91,6 +94,7 @@ ST_Bucket st_bucket_new_input();
 
 void st_insert(ST_Bucket new, ST st);
 void st_new_scope(ST st);
+void st_drop_scope(ST st);
 
 void t_decls_ant(t_decls node, ST st);
 

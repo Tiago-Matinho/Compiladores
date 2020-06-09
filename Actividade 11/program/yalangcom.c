@@ -1,8 +1,4 @@
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include "yalang.h"
+#include "yalangcom.h"
 
 
 /*********************************************************************|
@@ -182,7 +178,7 @@ struct yalang_t_type_
 // st_bucket
 typedef struct st_bucket_
 {
-    enum {ST_VAR, ST_FUNCT, ST_DEFINE, CODEGEN_VAR} kind;
+    enum {ST_VAR, ST_FUNCT, ST_DEFINE} kind;
 
     char *id;
     int scope;
@@ -202,12 +198,6 @@ typedef struct st_bucket_
         struct {
             t_type yatype;
         } define;
-
-        struct {
-            short size;
-            int address;
-        } codegen_var;
-
     } u;
 };
 
@@ -308,29 +298,6 @@ ST_Bucket st_bucket_new_input()
     return ret;
 }
 
-ST_Bucket st_bucket_new_codegen(char *id, t_type yatype, int scope,
-    int address)
-{
-    ST_Bucket ret = (ST_Bucket) malloc(sizeof(*ret));
-
-    ret->id = id;
-    ret->scope = scope;
-    ret->next = NULL;
-    ret->kind = CODEGEN_VAR;
-    
-    ret->u.codegen_var.address = address;
-
-    switch(){
-    case /* constant-expression */:
-        /* code */
-        break;
-    
-    default:
-        break;
-    }
-    return ret;
-}
-
 
 /*********************************************************************|
 |                            SYMBOL TABLE                             |
@@ -350,6 +317,7 @@ ST st_new()
     return ret;
 }
 
+//TODO encontrar nome
 unsigned long hash(unsigned char *str)
 {
     unsigned long hash = 5381;
@@ -363,7 +331,8 @@ unsigned long hash(unsigned char *str)
 
 void st_insert(ST_Bucket new, ST st)
 {
-    int key = (int) hash(new->id) % MAX_CONTEXT;
+    unsigned int key = (int) hash(new->id);
+    key %= MAX_CONTEXT;
 
     // DEBUG SYMBOL TABLE
     // printf("insert %s\n", new->id);
@@ -386,7 +355,8 @@ void st_insert(ST_Bucket new, ST st)
 
 ST_Bucket st_lookup(char *id, ST st)
 {
-    int key = (int) hash(id) % MAX_CONTEXT;
+    unsigned int key = (int) hash(id);
+    key %= MAX_CONTEXT;
 
     // DEBUG SYMBOL TABLE
     // printf("lookup %s\n", id);
@@ -481,9 +451,8 @@ void strprint(FILE* fp, char *str)
     fprintf(fp, "");
 }
 
-bool compatible_types(t_type l_type, t_type r_type, ST st)
+bool compatible_types(t_type l_type, t_type r_type)
 {
-    t_type search = NULL;
     switch(l_type->kind){
         case T_INT:
         case T_FLOAT:
@@ -491,15 +460,15 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
                 case T_INT:
                 case T_FLOAT:
                 case T_VOID:
+                case T_BOOL:
                     return true;
                 case T_STRING:
-                case T_BOOL:
                 case T_ID:
                     return false;
                 case T_ARRAY:
-                    return compatible_types(l_type, r_type->array_type, st);
+                    return compatible_types(l_type, r_type->array_type);
                 default:
-                    printf("ERROR: wrong type @ compatible_types\n");
+                    printf("Compiller Error: Bad t_type.\n");
                     exit(1);
                     return false;
             }
@@ -509,31 +478,31 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
                 case T_FLOAT:
                 case T_STRING:
                 case T_VOID:
-                    return true;
                 case T_BOOL:
+                    return true;
                 case T_ID:
                     return false;
                 case T_ARRAY:
-                    return compatible_types(l_type, r_type->array_type, st);
+                    return compatible_types(l_type, r_type->array_type);
                 default:
-                    printf("ERROR: wrong type @ compatible_types\n");
+                    printf("Compiller Error: Bad t_type.\n");
                     exit(1);
                     return false;
             }
         case T_BOOL:
             switch(r_type->kind){
                 case T_INT:
+                case T_FLOAT:
                 case T_BOOL:
                 case T_VOID:
                     return true;
-                case T_FLOAT:
                 case T_STRING:
                 case T_ID:
                     return false;
                 case T_ARRAY:
-                    return compatible_types(l_type, r_type->array_type, st);
+                    return compatible_types(l_type, r_type->array_type);
                 default:
-                    printf("ERROR: wrong type @ compatible_types\n");
+                    printf("Compiller Error: Bad t_type.\n");
                     exit(1);
                     return false;
             }
@@ -542,14 +511,295 @@ bool compatible_types(t_type l_type, t_type r_type, ST st)
         case T_ID:
             return strcmp(l_type->id, r_type->id) == 0;
         case T_ARRAY:
-            return compatible_types(l_type->array_type, r_type, st);
+            return compatible_types(l_type->array_type, r_type);
 
         case T_ANY:
             return true;
+            
         default:
-            printf("ERROR: wrong type @ compatible_types\n");
+                    printf("Compiller Error: Bad t_type.\n");
             exit(1);
             return false;
+    }
+}
+
+
+void predominent_type(t_type l_type, t_type r_type)
+{
+    t_type aux = NULL;
+
+    switch(l_type->kind){
+        case T_INT:
+            switch(r_type->kind){
+                case T_INT:
+                    return;
+
+                case T_FLOAT:
+                    printf("DEBUG: Implicit convert float to int.\n");
+                    aux = t_type_new('i');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_STRING:
+                    printf("ERROR: Can not implicitly convert string to int.\n");
+                    break;
+
+                case T_BOOL:
+                    printf("DEBUG: Implicit convert bool to int.\n");
+                    aux = t_type_new('i');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ID:
+                    printf("ERROR: Can not implicitly convert %s to int.\n", r_type->id);
+                    break;
+
+                case T_VOID:
+                    printf("DEBUG: Implicit convert void to int.\n");
+                    aux = t_type_new('i');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ANY:
+                    printf("DEBUG: Implicit convert any to int.\n");
+                    aux = t_type_new('i');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ARRAY: //FIXME
+                    // aux = predominent_type(l_type, r_type->array_type);
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                default:
+                    //TODO
+                    break;
+            }
+            break;
+
+        case T_FLOAT:
+            switch(r_type->kind){
+                case T_INT:
+                    printf("DEBUG: Implicit convert int to float.\n");
+                    aux = t_type_new('f');
+                    free(r_type);
+                    r_type = aux;
+                    return;
+
+                case T_FLOAT:
+                    break;
+
+                case T_STRING:
+                    printf("ERROR: Can not implicitly convert string to float.\n");
+                    break;
+
+                case T_BOOL:
+                    printf("DEBUG: Implicit convert bool to float.\n");
+                    aux = t_type_new('f');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ID:
+                    printf("ERROR: Can not implicitly convert %s to float.\n", r_type->id);
+                    break;
+
+                case T_VOID:
+                    printf("DEBUG: Implicit convert void to float.\n");
+                    aux = t_type_new('f');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ANY:
+                    printf("DEBUG: Implicit convert any to float.\n");
+                    aux = t_type_new('f');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ARRAY: //FIXME
+                    // aux = predominent_type(l_type, r_type->array_type);
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                default:
+                    //TODO
+                    break;
+            }
+            break;
+
+        case T_STRING:
+            switch(r_type->kind){
+                case T_INT:
+                    printf("DEBUG: Implicit convert int to string.\n");
+                    aux = t_type_new('s');
+                    free(r_type);
+                    r_type = aux;
+                    return;
+
+                case T_FLOAT:
+                    printf("DEBUG: Implicit convert float to string.\n");
+                    aux = t_type_new('s');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_STRING:
+                    break;
+
+                case T_BOOL:
+                    printf("DEBUG: Implicit convert bool to string.\n");
+                    aux = t_type_new('s');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ID:
+                    printf("ERROR: Can not implicitly convert %s to string.\n", r_type->id);
+                    break;
+
+                case T_VOID:
+                    printf("DEBUG: Implicit convert void to string.\n");
+                    aux = t_type_new('s');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ANY:
+                    printf("DEBUG: Implicit convert any to string.\n");
+                    aux = t_type_new('s');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ARRAY: //FIXME
+                    // aux = predominent_type(l_type, r_type->array_type);
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                default:
+                    //TODO
+                    break;
+            }
+            break;
+
+        case T_BOOL:
+            switch(r_type->kind){
+                case T_INT:
+                    printf("DEBUG: Implicit convert int to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    return;
+
+                case T_FLOAT:
+                    printf("DEBUG: Implicit convert float to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_STRING:
+                    printf("ERROR: Can not implicitly convert string to bool.\n");
+                    break;
+
+                case T_BOOL:
+                    break;
+
+                case T_ID:
+                    printf("ERROR: Can not implicitly convert %s to bool.\n", r_type->id);
+                    break;
+
+                case T_VOID:
+                    printf("DEBUG: Implicit convert void to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ANY:
+                    printf("DEBUG: Implicit convert any to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ARRAY: //FIXME
+                    // aux = predominent_type(l_type, r_type->array_type);
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                default:
+                    //TODO
+                    break;
+            }
+            break;
+
+        case T_ARRAY: //FIXME
+            switch(r_type->kind){
+                case T_INT:
+                    printf("DEBUG: Implicit convert int to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    return;
+
+                case T_FLOAT:
+                    printf("DEBUG: Implicit convert float to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_STRING:
+                    printf("ERROR: Can not implicitly convert string to bool.\n");
+                    break;
+
+                case T_BOOL:
+                    break;
+
+                case T_ID:
+                    printf("ERROR: Can not implicitly convert %s to bool.\n", r_type->id);
+                    break;
+
+                case T_VOID:
+                    printf("DEBUG: Implicit convert void to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ANY:
+                    printf("DEBUG: Implicit convert any to bool.\n");
+                    aux = t_type_new('b');
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                case T_ARRAY: //FIXME
+                    // aux = predominent_type(l_type, r_type->array_type);
+                    free(r_type);
+                    r_type = aux;
+                    break;
+
+                default:
+                    //TODO
+                    break;
+            }
+            break;
+
+        default:
+            //TODO
+            break;
     }
 }
 
@@ -585,7 +835,7 @@ void t_decls_print(FILE* fp, t_decls this)
     switch(this->kind) {
     case DECLS_SINGLE:
         t_decl_print(fp, this->d);
-        printf(fp, "$empty$ ");
+        fprintf(fp, "$empty$ ");
         break;
     
     case DECLS_LIST:
@@ -595,6 +845,7 @@ void t_decls_print(FILE* fp, t_decls this)
 
     default:
         //TODO
+        break;
     }
 
     fprintf(fp, "]\n");    
@@ -618,6 +869,7 @@ void t_decls_ant(t_decls node, ST st)
     }
 }
 
+/*
 // TODO NAME
 void t_decls_codegen(FILE* fp, t_decls node, ST st)
 {
@@ -635,6 +887,7 @@ void t_decls_codegen(FILE* fp, t_decls node, ST st)
         break;
     }
 }
+*/
 
 /*********************************************************************|
 |                                DECL                                 |
@@ -738,6 +991,7 @@ void t_decl_print(FILE* fp, t_decl this)
     
     default:
         //TODO
+        break;
     }
 
     fprintf(fp, "]\n");
@@ -789,7 +1043,7 @@ void t_decl_ant(t_decl node, ST st)
             type = node->u.varinit.type;
             exp_type = t_exp_ant(node->u.varinit.value, st);
 
-            if(!compatible_types(type, exp_type, st)){
+            if(!compatible_types(type, exp_type)){
                 printf("ERROR: types missmatch\n");
                 st->error = true;
             }
@@ -801,9 +1055,10 @@ void t_decl_ant(t_decl node, ST st)
                 search = st_lookup(cur_id->id, st); //procura se existe algo com o mesmo nome e scope
 
                 if(search != NULL){
-                    if(search->scope == st->curScope)
+                    if(search->scope == st->curScope){
                         printf("ERROR: Variable %s already defined\n", cur_id->id); // erro
                         st->error = true;
+                    }
                     else{
                         new = st_bucket_new_var(cur_id->id, type, st->curScope);
                         st_insert(new, st);
@@ -891,7 +1146,7 @@ void t_decl_ant(t_decl node, ST st)
 
 }
 
-// FIXME
+/*
 void t_decl_codegen(FILE* fp, t_decl node, ST st)
 {
     if(node == NULL)
@@ -931,6 +1186,7 @@ void t_decl_codegen(FILE* fp, t_decl node, ST st)
     }
 
 }
+*/
 
 
 /*********************************************************************|
@@ -974,6 +1230,7 @@ void t_stms_print(FILE* fp, t_stms this)
     
     default:
         //TODO
+        break;
     }
 
     fprintf(fp, "]\n");
@@ -997,7 +1254,7 @@ void t_stms_ant(t_stms node, ST st)
     }
 }
 
-//
+/*
 void t_stms_codegen(FILE* fp, t_stms node, ST st)
 {
     if(node == NULL)
@@ -1014,6 +1271,7 @@ void t_stms_codegen(FILE* fp, t_stms node, ST st)
         break;
     }
 }
+*/
 
 
 /*********************************************************************|
@@ -1149,6 +1407,7 @@ void t_stm_print(FILE* fp, t_stm this)
     
     default:
         //TODO
+        break;
     }
 }
 
@@ -1171,14 +1430,14 @@ void t_stm_ant(t_stm node, ST st)
             t_exp_ant(node->u.exp, st);
             break;
         case STM_IF:
-            if(!compatible_types(boolean, t_exp_ant(node->u._if.exp, st), st)){
+            if(!compatible_types(boolean, t_exp_ant(node->u._if.exp, st))){
                 printf("ERROR: expression not boolean\n");
                 st->error = true;
             }
             t_stms_ant(node->u._if.stms, st);
             break;
         case STM_IFELSE:
-            if(!compatible_types(boolean, t_exp_ant(node->u._ifelse.exp, st), st)){
+            if(!compatible_types(boolean, t_exp_ant(node->u._ifelse.exp, st))){
                 printf("ERROR: expression not boolean\n");
                 st->error = true;
             }
@@ -1186,7 +1445,7 @@ void t_stm_ant(t_stm node, ST st)
             t_stms_ant(node->u._ifelse.stms2, st);
             break;
         case STM_WHILE:
-            if(!compatible_types(boolean, t_exp_ant(node->u._while.exp, st), st)){
+            if(!compatible_types(boolean, t_exp_ant(node->u._while.exp, st))){
                 printf("ERROR: expression not boolean\n");
                 st->error = true;
             }
@@ -1197,7 +1456,7 @@ void t_stm_ant(t_stm node, ST st)
     }
 }
 
-//
+/*
 void t_stm_codegen(FILE* fp, t_stm node, ST st)
 {
     if(node == NULL)
@@ -1226,6 +1485,7 @@ void t_stm_codegen(FILE* fp, t_stm node, ST st)
             
     }
 }
+*/
 
 
 /*********************************************************************|
@@ -1406,6 +1666,7 @@ void t_exp_print(FILE* fp, t_exp this)
 
     default:
         //TODO
+        break;
     }
 
     fprintf(fp, "]\n");
@@ -1459,7 +1720,7 @@ t_type t_exp_ant(t_exp node, ST st)
             l_type = t_exp_ant(node->u.binop.exp1, st);
             r_type = t_exp_ant(node->u.binop.exp2, st);
 
-            if(!compatible_types(l_type, r_type, st)){
+            if(!compatible_types(l_type, r_type)){
                 printf("ERROR: incompatible types\n");
                 st->error = true;
             }
@@ -1519,7 +1780,7 @@ t_type t_exp_ant(t_exp node, ST st)
             l_type = t_exp_ant(node->u.assign.exp1, st);
             r_type = t_exp_ant(node->u.assign.exp2, st);
 
-            if(!compatible_types(l_type, r_type, st)){
+            if(!compatible_types(l_type, r_type)){
                 printf("ASSIGN ERROR: incompatible types\n");
                 st->error = true;
             }
@@ -1546,7 +1807,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
                     l_type = t_exp_ant(cur_arg->exp, st);
 
-                    if(!compatible_types(cur_argdef->a->type, l_type, st)){
+                    if(!compatible_types(cur_argdef->a->type, l_type)){
                         printf("ERROR: wrong arg type %s\n", cur_argdef->a->id);
                         st->error = true;
                     }
@@ -1568,7 +1829,7 @@ t_type t_exp_ant(t_exp node, ST st)
     return ret;
 }
 
-//
+/*
 void t_exp_codegen(FILE* fp, t_exp node, ST st)
 {
     if(node == NULL)
@@ -1679,6 +1940,7 @@ void t_exp_codegen(FILE* fp, t_exp node, ST st)
 
     return ret;
 }
+*/
 
 
 /*********************************************************************|
@@ -1721,15 +1983,16 @@ void t_argsdef_print(FILE* fp, t_argsdef this)
         break;
 
     default:
-    //TODO
+        //TODO
+        break;
     }
 
     fprintf(fp, "]\n");
 }
 
-//
+/*
 void t_argsdef_codegen(FILE* fp, t_argsdef node, ST st);
-
+*/
 
 /*********************************************************************|
 |                               ARGDEF                                |
@@ -1756,8 +2019,9 @@ void t_argdef_print(FILE* fp, t_argdef this)
     t_type_print(fp, this->type);
 }
 
-//
+/*
 void t_argdef_codegen(FILE* fp, t_argdef node, ST st);
+*/
 
 
 /*********************************************************************|
@@ -1796,7 +2060,7 @@ void t_args_print(FILE* fp, t_args this)
     fprintf(fp, "]\n");
 }
 
-//
+/*
 void t_args_codegen(FILE* fp, t_args node, ST st)
 {
     if(node == NULL)
@@ -1815,6 +2079,7 @@ void t_args_codegen(FILE* fp, t_args node, ST st)
         printf("addiu $sp, $sp, -4\n");
     }
 }
+*/
 
 
 /*********************************************************************|
@@ -1857,17 +2122,18 @@ void t_ids_print(FILE* fp, t_ids this)
         break;
 
     default:
-    //TODO
+        //TODO
+        break;
     }
 
 }
 
-//
+/*
 void t_ids_codegen(FILE* fp, t_ids node, ST st)
 {
 
 }
-
+*/
 
 /*********************************************************************|
 |                                TYPE                                 |
@@ -1974,8 +2240,9 @@ void t_type_print(FILE* fp, t_type this)
     fprintf(fp, "]\n");
 }
 
-//
+/*
 void t_type_codegen(FILE* fp, t_type node, ST st)
 {
 
 }
+*/
