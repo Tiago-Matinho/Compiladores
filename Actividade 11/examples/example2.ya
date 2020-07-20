@@ -15,7 +15,7 @@ main () : void {
   input(x);
   print("O factorial de ");
   print(x);
-  print(" é ");
+  print(" e ");
   print(fact(x));
   print(".\n");
 };

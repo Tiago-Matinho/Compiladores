@@ -1,4 +1,4 @@
-#include "yalangcom.h"
+#include "yalangcomp.h"
 
 
 /*********************************************************************|
@@ -178,15 +178,17 @@ struct yalang_t_type_
 // st_bucket
 typedef struct st_bucket_
 {
-    enum {ST_VAR, ST_FUNCT, ST_DEFINE} kind;
+    enum { ST_VAR, ST_FUNCT, ST_DEFINE } kind;
 
     char *id;
     int scope;
+    int address;
+    int size;
     ST_Bucket next;
 
     union {
         struct {
-            enum {VARloc, VARarg} kind;
+            enum { VARloc, VARarg } kind;
             t_type yatype;
         } var;
 
@@ -204,37 +206,60 @@ typedef struct st_bucket_
 // st
 typedef struct st_
 {
-    bool error;
+    bool *error;
     int curScope;
-    ST_Bucket array[MAX_CONTEXT];
+    ST_Bucket array[MAX_SCOPE];
+    int curr_addr;
 };
 
+int contador_ifs = 0, contador_if_else = 0, contador_while = 0;
 
 /*********************************************************************|
 |                              BUCKETS                                |
 |*********************************************************************/
 
 
-ST_Bucket st_bucket_new_var(char *id, t_type yatype, int scope)
+ST_Bucket st_bucket_new_var(char *id, t_type yatype, int scope,
+    int address)
 {
     ST_Bucket ret = (ST_Bucket) malloc(sizeof(*ret));
 
     ret->id = id;
     ret->scope = scope;
+    ret->address = address;
     ret->next = NULL;
     ret->kind = ST_VAR;
     ret->u.var.yatype = yatype;
+    ret->u.var.kind = VARloc;
 
     return ret;
 }
 
-ST_Bucket st_bucket_new_funct(char *id, t_argsdef args,
-t_type return_type, int scope)
+ST_Bucket st_bucket_new_arg(char *id, t_type yatype, int scope,
+    int address)
 {
     ST_Bucket ret = (ST_Bucket) malloc(sizeof(*ret));
 
     ret->id = id;
     ret->scope = scope;
+    ret->address = address;
+    ret->next = NULL;
+    ret->kind = ST_VAR;
+    ret->u.var.yatype = yatype;
+    ret->u.var.kind = VARarg;
+
+    return ret;
+}
+
+
+ST_Bucket st_bucket_new_funct(char *id, t_argsdef args,
+    t_type return_type, int scope, int address)
+{
+    ST_Bucket ret = (ST_Bucket) malloc(sizeof(*ret));
+
+    ret->id = id;
+    ret->scope = scope;
+    ret->address = address;
     ret->next = NULL;
     ret->kind = ST_FUNCT;
     ret->u.func.args = args;
@@ -243,12 +268,14 @@ t_type return_type, int scope)
     return ret;
 }
 
-ST_Bucket st_bucket_new_define(char *id, t_type yatype, int scope)
+ST_Bucket st_bucket_new_define(char *id, t_type yatype, int scope,
+    int address)
 {
     ST_Bucket ret = (ST_Bucket) malloc(sizeof(*ret));
 
     ret->id = id;
     ret->scope = scope;
+    ret->address = address;
     ret->next = NULL;
     ret->kind = ST_DEFINE;
     ret->u.define.yatype = yatype;
@@ -304,20 +331,21 @@ ST_Bucket st_bucket_new_input()
 |*********************************************************************/
 
 
-ST st_new()
+ST st_new(bool * error)
 {
     ST ret = (ST) malloc(sizeof(*ret));
 
     if(ret != NULL){
-        ret->error = false;
+        ret->error = error;
         ret->curScope = 0;
-        for(int i = 0; i < MAX_CONTEXT; i++)
+        for(int i = 0; i < MAX_SCOPE; i++)
             ret->array[i] = NULL;
+        ret->curr_addr = 0;
     }
     return ret;
 }
 
-//TODO encontrar nome
+// funcao hash "djb2" http://www.cse.yorku.ca/~oz/hash.html
 unsigned long hash(unsigned char *str)
 {
     unsigned long hash = 5381;
@@ -332,7 +360,7 @@ unsigned long hash(unsigned char *str)
 void st_insert(ST_Bucket new, ST st)
 {
     unsigned int key = (int) hash(new->id);
-    key %= MAX_CONTEXT;
+    key %= MAX_SCOPE;
 
     // DEBUG SYMBOL TABLE
     // printf("insert %s\n", new->id);
@@ -344,7 +372,7 @@ void st_insert(ST_Bucket new, ST st)
 
     if(strcmp(st->array[key]->id, new->id) != 0){
         while(st->array[key] != NULL)
-            key = (key + 1) % MAX_CONTEXT;
+            key = (key + 1) % MAX_SCOPE;
         st->array[key] = new;
     }
 
@@ -356,7 +384,7 @@ void st_insert(ST_Bucket new, ST st)
 ST_Bucket st_lookup(char *id, ST st)
 {
     unsigned int key = (int) hash(id);
-    key %= MAX_CONTEXT;
+    key %= MAX_SCOPE;
 
     // DEBUG SYMBOL TABLE
     // printf("lookup %s\n", id);
@@ -408,7 +436,7 @@ void st_drop_scope(ST st)
 {
     ST_Bucket aux;
 
-    for(int i = 0; i < MAX_CONTEXT; i++){
+    for(int i = 0; i < MAX_SCOPE; i++){
         if(st->array[i] != NULL){
             if(st->array[i]->scope == st->curScope){
                 aux = st->array[i];
@@ -523,7 +551,6 @@ bool compatible_types(t_type l_type, t_type r_type)
     }
 }
 
-
 void predominent_type(t_type l_type, t_type r_type)
 {
     t_type aux = NULL;
@@ -570,14 +597,13 @@ void predominent_type(t_type l_type, t_type r_type)
                     r_type = aux;
                     break;
 
-                case T_ARRAY: //FIXME
+                case T_ARRAY:
                     // aux = predominent_type(l_type, r_type->array_type);
                     free(r_type);
                     r_type = aux;
                     break;
 
                 default:
-                    //TODO
                     break;
             }
             break;
@@ -623,14 +649,13 @@ void predominent_type(t_type l_type, t_type r_type)
                     r_type = aux;
                     break;
 
-                case T_ARRAY: //FIXME
+                case T_ARRAY:
                     // aux = predominent_type(l_type, r_type->array_type);
                     free(r_type);
                     r_type = aux;
                     break;
 
                 default:
-                    //TODO
                     break;
             }
             break;
@@ -679,14 +704,13 @@ void predominent_type(t_type l_type, t_type r_type)
                     r_type = aux;
                     break;
 
-                case T_ARRAY: //FIXME
+                case T_ARRAY:
                     // aux = predominent_type(l_type, r_type->array_type);
                     free(r_type);
                     r_type = aux;
                     break;
 
                 default:
-                    //TODO
                     break;
             }
             break;
@@ -732,19 +756,18 @@ void predominent_type(t_type l_type, t_type r_type)
                     r_type = aux;
                     break;
 
-                case T_ARRAY: //FIXME
+                case T_ARRAY:
                     // aux = predominent_type(l_type, r_type->array_type);
                     free(r_type);
                     r_type = aux;
                     break;
 
                 default:
-                    //TODO
                     break;
             }
             break;
 
-        case T_ARRAY: //FIXME
+        case T_ARRAY:
             switch(r_type->kind){
                 case T_INT:
                     printf("DEBUG: Implicit convert int to bool.\n");
@@ -785,22 +808,79 @@ void predominent_type(t_type l_type, t_type r_type)
                     r_type = aux;
                     break;
 
-                case T_ARRAY: //FIXME
+                case T_ARRAY:
                     // aux = predominent_type(l_type, r_type->array_type);
                     free(r_type);
                     r_type = aux;
                     break;
 
                 default:
-                    //TODO
                     break;
             }
             break;
 
         default:
-            //TODO
             break;
     }
+}
+
+int type_size(t_type type)
+{
+    if(type == NULL)
+        exit(1);
+
+    switch(type->kind){
+        case T_FLOAT:
+            return 8;
+        case T_STRING:
+            return MAX_STRING_SIZE;
+        case T_ARRAY:
+            return type->size * type_size(type->array_type);
+        default:
+            return 4;
+    }
+}
+
+void store_string(FILE* fp, char* str)
+{
+    int counter = strlen(str);
+    int i = 1;
+
+    while(*str != '\0')
+    {
+        if(i == 1)
+            fprintf(fp, "li $t0, 0x");
+
+        fprintf(fp, "%x", *str);
+
+        i++;
+
+        if(i == 5){
+            i = 1;
+            fprintf(fp, "\n");
+            fprintf(fp, "sw $t0, ($sp)\n");
+            fprintf(fp, "addiu $sp, $sp, -4\n");
+        }
+        
+        str++;
+    }
+
+    if(5 - i != 0){
+
+        for(int j = 0; j < 5 - i; j++)
+            fprintf(fp, "00");
+        
+        fprintf(fp, "\n");
+        fprintf(fp, "sw $t0, ($sp)\n");
+        fprintf(fp, "addiu $sp, $sp, -4\n");
+    }
+    
+    else{
+        fprintf(fp, "sw $zero, ($sp)\n");
+        fprintf(fp, "addiu $sp, $sp, -4\n");
+    }
+
+    fprintf(fp, "addiu $sp, $sp, -%d\n", MAX_STRING_SIZE - counter);
 }
 
 
@@ -844,7 +924,6 @@ void t_decls_print(FILE* fp, t_decls this)
         break;
 
     default:
-        //TODO
         break;
     }
 
@@ -869,10 +948,12 @@ void t_decls_ant(t_decls node, ST st)
     }
 }
 
-/*
-// TODO NAME
+// codegen
 void t_decls_codegen(FILE* fp, t_decls node, ST st)
 {
+
+    fprintf(fp, "### decls\n");
+
     if(node == NULL)
         exit(1);
     
@@ -887,7 +968,7 @@ void t_decls_codegen(FILE* fp, t_decls node, ST st)
         break;
     }
 }
-*/
+
 
 /*********************************************************************|
 |                                DECL                                 |
@@ -990,7 +1071,6 @@ void t_decl_print(FILE* fp, t_decl this)
         break;
     
     default:
-        //TODO
         break;
     }
 
@@ -1024,15 +1104,15 @@ void t_decl_ant(t_decl node, ST st)
                 if(search != NULL){
                     if(search->scope == st->curScope){
                         printf("ERROR: Variable %s already defined\n", cur_id->id);
-                        st->error = true;
+                        *st->error = true;
                     }
                     else{
-                        new = st_bucket_new_var(cur_id->id, type, st->curScope);
+                        new = st_bucket_new_var(cur_id->id, type, st->curScope, -1);
                         st_insert(new, st);
                     }
                 }
                 else{   // adiciona a symbol table
-                    new = st_bucket_new_var(cur_id->id, type, st->curScope);
+                    new = st_bucket_new_var(cur_id->id, type, st->curScope, -1);
                     st_insert(new, st);
                 }
                 cur_id = cur_id->ids;
@@ -1045,7 +1125,7 @@ void t_decl_ant(t_decl node, ST st)
 
             if(!compatible_types(type, exp_type)){
                 printf("ERROR: types missmatch\n");
-                st->error = true;
+                *st->error = true;
             }
 
             cur_id = node->u.varinit.ids;
@@ -1057,16 +1137,16 @@ void t_decl_ant(t_decl node, ST st)
                 if(search != NULL){
                     if(search->scope == st->curScope){
                         printf("ERROR: Variable %s already defined\n", cur_id->id); // erro
-                        st->error = true;
+                        *st->error = true;
                     }
                     else{
-                        new = st_bucket_new_var(cur_id->id, type, st->curScope);
+                        new = st_bucket_new_var(cur_id->id, type, st->curScope, -1);
                         st_insert(new, st);
                     }
                     
                 }
                 else{   // adiciona a symbol table
-                    new = st_bucket_new_var(cur_id->id, type, st->curScope);
+                    new = st_bucket_new_var(cur_id->id, type, st->curScope, -1);
                     st_insert(new, st);
                 }
                 cur_id = cur_id->ids;
@@ -1081,11 +1161,11 @@ void t_decl_ant(t_decl node, ST st)
 
             if(search != NULL){
                 printf("ERROR: Function %s already defined\n", node->u.funct.id);
-                st->error = true;
+                *st->error = true;
             }
 
             else{   // adiciona a symbol table
-                new = st_bucket_new_funct(node->u.funct.id, args, return_type, st->curScope);
+                new = st_bucket_new_funct(node->u.funct.id, args, return_type, st->curScope, -1);
                 st_insert(new, st);
             }
 
@@ -1105,10 +1185,10 @@ void t_decl_ant(t_decl node, ST st)
 
             if(search != NULL){
                 printf("ERROR: Function %s already defined\n", node->u.funct.id);
-                st->error = true;    
+                *st->error = true;    
             }
             else{   // adiciona a symbol table
-                new = st_bucket_new_funct(node->u.funct.id, args, return_type, st->curScope);
+                new = st_bucket_new_funct(node->u.funct.id, args, return_type, st->curScope, -1);
                 st_insert(new, st);
             }
 
@@ -1117,7 +1197,7 @@ void t_decl_ant(t_decl node, ST st)
             while(args != NULL){
                 cur_arg = args->a;
 
-                new = st_bucket_new_var(cur_arg->id, cur_arg->type, st->curScope);
+                new = st_bucket_new_var(cur_arg->id, cur_arg->type, st->curScope, -1);
 
                 st_insert(new, st);
 
@@ -1134,11 +1214,11 @@ void t_decl_ant(t_decl node, ST st)
 
             if(search != NULL){
                 printf("ERROR: Function %s already defined\n", node->u.define.id);
-                st->error = true;
+                *st->error = true;
             }
 
             else{   // adiciona a symbol table
-                new = st_bucket_new_define(node->u.define.id, node->u.define.type, st->curScope);
+                new = st_bucket_new_define(node->u.define.id, node->u.define.type, st->curScope, -1);
                 st_insert(new, st);
             }
             break;
@@ -1146,39 +1226,105 @@ void t_decl_ant(t_decl node, ST st)
 
 }
 
-/*
+// codegen
 void t_decl_codegen(FILE* fp, t_decl node, ST st)
 {
     if(node == NULL)
         exit(1);
 
+    fprintf(fp, "### decl\n");
+
+    t_type type = NULL;
+    t_ids cur_id = NULL;
+    ST_Bucket new = NULL;
+    int ra_begin, ra_size;
+    int size;
+
     switch(node->kind) {
         case DECL_VAR:
-            
+            cur_id = node->u.var.ids;
+            // ciclo para casos de multiplos ids definidos
+
+            size = type_size(node->u.var.type);
+
+            while(cur_id != NULL){
+
+                fprintf(fp, "addiu $sp, $sp, -%d\n", size);
+
+                st->curr_addr += size;
+                
+                // adiciona a symbol table
+                new = st_bucket_new_var(cur_id->id, type, st->curScope, st->curr_addr);
+                new->size = size;
+                st_insert(new, st);
+
+
+                cur_id = cur_id->ids;
+            }
             break;
 
         case DECL_VARINIT:
-            
+            cur_id = node->u.varinit.ids;
+            // ciclo para casos de multiplos ids definidos
+
+            size = type_size(node->u.varinit.type);
+
+            // valor da expressao fica em $t0
+            if(size == 4)
+                t_exp_codegen(fp, node->u.varinit.value, st);
+
+            while(cur_id != NULL){
+
+                if(size > 4)
+                    t_exp_codegen(fp, node->u.varinit.value, st);
+                
+                else{
+                    fprintf(fp, "sw $t0, 0($sp)\n");
+                    fprintf(fp, "addiu $sp, $sp, -4\n");
+                }
+
+                st->curr_addr += size;
+
+                // adiciona a symbol table
+                new = st_bucket_new_var(cur_id->id, type, st->curScope, st->curr_addr);
+                new->size = size;
+                st_insert(new, st);
+
+                cur_id = cur_id->ids;
+            }
             break;
 
         case DECL_FUNCT_VOID:
-            
-            break;
-
         case DECL_FUNCT:
+            //novo scope
+            st_new_scope(st);
+            st->curr_addr = 0;
+
+            t_argsdef_codegen(fp, node->u.funct.args, st);
+
             fprintf(fp, "funct_%s_decl:\n", node->u.funct.id);
             fprintf(fp, "move $fp, $sp\n");  // Novo FP
             fprintf(fp, "sw $ra, 0($sp)\n"); // Guarda o Return Add anterior
             fprintf(fp, "addiu $sp, $sp, -4\n");
 
-            t_stms_codegen(fp, node->u.funct.stms);
+            st->curr_addr += 4;
+
+            ra_begin = st->curr_addr;
+
+            t_stms_codegen(fp, node->u.funct.stms, st);
+
+            ra_size = st->curr_addr - ra_begin;
 
             fprintf(fp, "funct_%s_exit:\n", node->u.funct.id);
-            fprintf(fp, "lw $ra, 4 ($sp)\n");
+            fprintf(fp, "lw $ra, ($sp)\n");
+            fprintf(fp, "addiu $sp, $sp, %d\n", ra_size);
+            fprintf(fp, "lw $fp, 0($sp)\n");
+            fprintf(fp, "jr $ra\n");
+            fprintf(fp, "nop\n");
             break;
         
         case DECL_DEFINE:
-
+            //FIXME define
             break;
 
         default:
@@ -1186,7 +1332,6 @@ void t_decl_codegen(FILE* fp, t_decl node, ST st)
     }
 
 }
-*/
 
 
 /*********************************************************************|
@@ -1229,7 +1374,6 @@ void t_stms_print(FILE* fp, t_stms this)
         break;
     
     default:
-        //TODO
         break;
     }
 
@@ -1254,24 +1398,25 @@ void t_stms_ant(t_stms node, ST st)
     }
 }
 
-/*
+// codegen
 void t_stms_codegen(FILE* fp, t_stms node, ST st)
 {
     if(node == NULL)
         exit(1);
+
+    fprintf(fp, "### stms\n");
     
     switch(node->kind){
         case STMS_SINGLE:
-            t_stm_codegen(node->s, st);
+            t_stm_codegen(fp, node->s, st);
             break;
     
     default:
-            t_stm_codegen(node->s, st);
-            t_stms_codegen(node->ss, st);
+            t_stm_codegen(fp, node->s, st);
+            t_stms_codegen(fp, node->ss, st);
         break;
     }
 }
-*/
 
 
 /*********************************************************************|
@@ -1406,7 +1551,6 @@ void t_stm_print(FILE* fp, t_stm this)
         break;
     
     default:
-        //TODO
         break;
     }
 }
@@ -1432,14 +1576,14 @@ void t_stm_ant(t_stm node, ST st)
         case STM_IF:
             if(!compatible_types(boolean, t_exp_ant(node->u._if.exp, st))){
                 printf("ERROR: expression not boolean\n");
-                st->error = true;
+                *st->error = true;
             }
             t_stms_ant(node->u._if.stms, st);
             break;
         case STM_IFELSE:
             if(!compatible_types(boolean, t_exp_ant(node->u._ifelse.exp, st))){
                 printf("ERROR: expression not boolean\n");
-                st->error = true;
+                *st->error = true;
             }
             t_stms_ant(node->u._ifelse.stms1, st);
             t_stms_ant(node->u._ifelse.stms2, st);
@@ -1447,7 +1591,7 @@ void t_stm_ant(t_stm node, ST st)
         case STM_WHILE:
             if(!compatible_types(boolean, t_exp_ant(node->u._while.exp, st))){
                 printf("ERROR: expression not boolean\n");
-                st->error = true;
+                *st->error = true;
             }
             t_stms_ant(node->u._while.stms, st);
         default:
@@ -1456,36 +1600,82 @@ void t_stm_ant(t_stm node, ST st)
     }
 }
 
-/*
+// stm codegen
 void t_stm_codegen(FILE* fp, t_stm node, ST st)
 {
+
+    fprintf(fp, "### stm\n");
+
     if(node == NULL)
         exit(1);
     
     switch(node->kind){
         case STM_DECL:
-            t_decl_codegen(node->u.decl, st);
+            t_decl_codegen(fp, node->u.decl, st);
             break;
-        case STM_EXP:
-            t_exp_codegen(node->u.exp, st);
-            break;
-        case STM_RET:
-            t_exp_codegen(node->u.exp, st);
-            break;
-        case STM_IF:
 
+        case STM_EXP:
+            t_exp_codegen(fp, node->u.exp, st);
             break;
+
+        case STM_RET:
+            t_exp_codegen(fp, node->u.exp, st);
+            break;
+
+        case STM_IF:
+            t_exp_codegen(fp, node->u._if.exp, st);
+
+            fprintf(fp, "beq $t0, $zero, endif_%d\n", contador_ifs);
+
+            fprintf(fp, "if_%d_true:\n", contador_ifs);
+
+            t_stms_codegen(fp, node->u._if.stms, st);
+
+            fprintf(fp, "endif_%d:\n", contador_ifs);
+
+            contador_ifs++;
+            break;
+
         case STM_IFELSE:
-           
+            t_exp_codegen(fp, node->u._ifelse.exp, st);
+
+            fprintf(fp, "beq $t0, $zero, elseif_%d_false\n", contador_if_else);
+
+            fprintf(fp, "elseif_%d_true:\n", contador_if_else);
+
+            t_stms_codegen(fp, node->u._ifelse.stms1, st);
+
+            fprintf(fp, "elseif_%d_false:\n", contador_if_else);
+
+            t_stms_codegen(fp, node->u._ifelse.stms2, st);
+
+            fprintf(fp, "elseif_%d_end\n", contador_if_else);
+
+            contador_if_else++;
             break;
+
         case STM_WHILE:
-            
+            fprintf(fp, "while_%d:\n", contador_while);
+
+            t_exp_codegen(fp, node->u._while.exp, st);
+
+            fprintf(fp, "beq $t0, $zero, while_%d_end\n", contador_while);    
+
+            t_stms_codegen(fp, node->u._while.stms, st);
+
+            fprintf(fp, "j while_%d\n", contador_while);
+
+            fprintf(fp, "while_%d_end:\n", contador_while);
+
+            contador_while++;
+            break;
+
         default:
             break;
             
     }
 }
-*/
+
 
 
 /*********************************************************************|
@@ -1665,7 +1855,6 @@ void t_exp_print(FILE* fp, t_exp this)
         break;
 
     default:
-        //TODO
         break;
     }
 
@@ -1707,7 +1896,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
             if(ret == NULL){
                 printf("ERROR: %s not previously defined\n", node->u.id);
-                st->error = true;
+                *st->error = true;
             }           
             break;
     
@@ -1722,7 +1911,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
             if(!compatible_types(l_type, r_type)){
                 printf("ERROR: incompatible types\n");
-                st->error = true;
+                *st->error = true;
             }
                 
             switch(node->u.binop.op[0]){
@@ -1758,7 +1947,7 @@ t_type t_exp_ant(t_exp node, ST st)
                         ret = t_type_new('i');
                     else{
                         printf("ERROR: incompatible types\n");
-                        st->error = true;
+                        *st->error = true;
                         ret =  t_type_new('v');
                     }
                     break;
@@ -1768,7 +1957,7 @@ t_type t_exp_ant(t_exp node, ST st)
                         ret = t_type_new('b');
                     else{
                         printf("ERROR: incompatible types\n");
-                        st->error = true;
+                        *st->error = true;
                         ret =  t_type_new('v');
                     }
                     break;
@@ -1782,7 +1971,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
             if(!compatible_types(l_type, r_type)){
                 printf("ASSIGN ERROR: incompatible types\n");
-                st->error = true;
+                *st->error = true;
             }
 
             ret = l_type;
@@ -1793,7 +1982,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
             if(search == NULL){
                 printf("ERROR: function %s not previously defined\n", node->u.funct.id);
-                st->error = true;
+                *st->error = true;
             }
             else{
                 cur_argdef = search->u.func.args;
@@ -1801,7 +1990,7 @@ t_type t_exp_ant(t_exp node, ST st)
                 while(cur_argdef != NULL){
                     if(cur_arg == NULL){
                         printf("ERROR: few arguments in function %s\n", node->u.funct.id);
-                        st->error = true;
+                        *st->error = true;
                         break;
                     }
 
@@ -1809,7 +1998,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
                     if(!compatible_types(cur_argdef->a->type, l_type)){
                         printf("ERROR: wrong arg type %s\n", cur_argdef->a->id);
-                        st->error = true;
+                        *st->error = true;
                     }
 
                     cur_argdef = cur_argdef->as;
@@ -1818,7 +2007,7 @@ t_type t_exp_ant(t_exp node, ST st)
 
                 if(cur_arg != NULL){
                     printf("ERROR: too many arguments in function %s\n", node->u.funct.id);
-                    st->error = true;
+                    *st->error = true;
                 }
                 ret = search->u.func.return_type;
             }
@@ -1829,9 +2018,12 @@ t_type t_exp_ant(t_exp node, ST st)
     return ret;
 }
 
-/*
+// codegen
 void t_exp_codegen(FILE* fp, t_exp node, ST st)
 {
+
+    fprintf(fp, "### exp\n");
+
     if(node == NULL)
         exit(1);
 
@@ -1841,106 +2033,163 @@ void t_exp_codegen(FILE* fp, t_exp node, ST st)
     ST_Bucket search = NULL;
     t_argsdef cur_argdef = NULL;
     t_args cur_arg = NULL;
+    int size1, size2;
+    int counter;
 
     switch(node->kind) {
         case EXP_INTLIT:
-            printf("li $t0, %d\n");
+            fprintf(fp, "li $t0, %d\n", node->u.lit.int_val);
             break;
     
         case EXP_FLOATLIT:
-            printf("li $f0, %d\n"); //FIXME
+            fprintf(fp, "li $f0, %d\n", node->u.lit.int_val); //FIXME floats lit
             break;
     
         case EXP_STRINGLIT:
-            ret = t_type_new('s'); //FIXME
+            fprintf(fp, "move $t0, $sp\n");
+            store_string(fp, node->u.lit.string_val);
             break;
     
         case EXP_BOOLLIT:
-            printf("li $t0, ");
-            node->u.lit.bool_val ? printf("1\n") : printf("0\n");
+            fprintf(fp, "li $t0, ");
+            node->u.lit.bool_val ? fprintf(fp, "1\n") : fprintf(fp, "0\n");
             break;
     
         case EXP_ID:
-            ret = st_lookup_type(node->u.id, st);
+            search = st_lookup(node->u.id, st);
 
-            if(ret == NULL)
-                printf("ERROR: %s not previously defined\n", node->u.id);            
+            if(search->scope == st->curScope)
+                fprintf(fp, "lw $t0, -%d($fp)\n", search->address);
+
+            else{
+                fprintf(fp, "lw $t0, 4($fp)\n");
+                fprintf(fp, "lw $t0, -%d($t0)\n", search->address);
+            }
+            
             break;
     
         case EXP_ARRAY:
-            ret = t_exp_ant(node->u.array.exp, st);
+            search = st_lookup(node->u.array.exp->u.id, st);
+
+            if(search->scope == st->curScope){
+                fprintf(fp, "addiu $s0, $fp, -%d\n", search->address + node->u.array.pos);
+                fprintf(fp, "lw $t0, ($t1)\n");
+            }
+            else{
+                fprintf(fp, "lw $t0, 4($fp)\n");
+                fprintf(fp, "addiu $s0, $t0, -%d\n", search->address + node->u.array.pos);
+                fprintf(fp, "lw $t0, ($t1)\n");
+            }
+            
             break;
     
         case EXP_BINOP:
-            t_exp_codegen(node->u.binop.exp1);
-            printf("sw $t0, 0($sp)\n");
-            printf("addiu $sp, $sp, -4\n");
-            t_exp_codegen(node->u.binop.exp2);
-            printf("lw $t1, 4($sp)\n");
+            t_exp_codegen(fp, node->u.binop.exp1, st);
+            fprintf(fp, "sw $t0, 0($sp)\n");
+            fprintf(fp, "addiu $sp, $sp, -4\n");
+            t_exp_codegen(fp, node->u.binop.exp2, st);
+            fprintf(fp, "lw $t1, 4($sp)\n");
 
             switch(node->u.binop.op[0]){
                 case '+':
-                    printf("add "); break;
+                    fprintf(fp, "add "); break;
                 case '-':
-                    printf("sub "); break;
+                    fprintf(fp, "sub "); break;
                 case '/':
-                    printf("div "); break; //FIXME
+                    fprintf(fp, "div "); break; //FIXME divisão
                 case '*':
-                    printf("mul "); break;
+                    fprintf(fp, "mul "); break;
                 case '^':
-                    printf("add "); break; //FIXME
+                    fprintf(fp, "add "); break; //FIXME exponencial
                 case 'm':
-                    printf("add "); break; //FIXME
+                    fprintf(fp, "add "); break; //FIXME resto
 
                 default:
-                    ret = t_type_new('b'); //FIXME
-                    break;
+                    if(strcmp(node->u.binop.op, "==") == 0){
+                        fprintf(fp, "xor $t0, $t0, $t1\n");
+                        fprintf(fp, "not $t0, $t0\n");
+                    }
+
+                    else if(strcmp(node->u.binop.op, "<") == 0){
+                        fprintf(fp, "slt $t0, $t0, $t1\n");
+                    }
+
+                    else if(strcmp(node->u.binop.op, ">") == 0){
+                        fprintf(fp, "slt $t0, $t1, $t0\n");
+                    }
+
+                    else if(strcmp(node->u.binop.op, "<=") == 0){
+                        fprintf(fp, "sle $t0, $t0, $t1\n");
+                    }
+
+                    else if(strcmp(node->u.binop.op, ">=") == 0){
+                        fprintf(fp, "slt $t0, $t0, $t1\n");
+                        fprintf(fp, "not $t0, $t0\n");
+                    }
+
+                    else if(strcmp(node->u.binop.op, "and") == 0){
+                        fprintf(fp, "and $t0, $t0, $t1\n");
+                    }
+
+                    else if(strcmp(node->u.binop.op, "or") == 0){
+                        fprintf(fp, "or $t0, $t0, $t1\n");
+                    }
+                    
+                    return;
             }
 
-            printf("$t0, $t1, $t0\n");
-            printf("addiu $sp, $sp, 4\n");
+            fprintf(fp, "$t0, $t1, $t0\n");
+            fprintf(fp, "addiu $sp, $sp, 4\n");
             break;
     
         case EXP_UNOP:
-            t_exp_codegen(node->u.unop.exp);
+            t_exp_codegen(fp, node->u.unop.exp, st);
 
             switch(node->u.unop.op[0]){
                 case '-':
-                    printf("mul $t0, $t0, -1\n");
+                    fprintf(fp, "mul $t0, $t0, -1\n");
                     break;
 
                 default:    //not
-                    printf("not $t0, $t0\n");
+                    fprintf(fp, "not $t0, $t0\n");
                     break;
 
             }
             break;
         
-        case EXP_ASSIGN:    //FIXME
-            l_type = t_exp_ant(node->u.assign.exp1, st);
-            r_type = t_exp_ant(node->u.assign.exp2, st);
+        case EXP_ASSIGN:
+            search = st_lookup(node->u.assign.exp1->u.id, st);
 
-            if(!compatible_types(l_type, r_type, st))
-                printf("ASSIGN ERROR: incompatible types\n");
+            t_exp_codegen(fp, node->u.assign.exp2, st);
 
-            ret = l_type;
+            if(search->scope == st->curScope){
+                fprintf(fp, "addiu $s0, $fp, -%d\n", search->address);
+                fprintf(fp, "sw $t0, ($t1)\n");
+            }
+            else{
+                fprintf(fp, "lw $t0, 4($fp)\n");
+                fprintf(fp, "addiu $s0, $t0, -%d\n", search->address);
+                fprintf(fp, "sw $t0, ($t1)\n");
+            }
             break;
         
-        case EXP_FUNCT: //FIXME
-            printf("sw $fp, 0($sp)\n");
-            printf("addiu $sp, $sp, -4\n");
+        case EXP_FUNCT:
+            fprintf(fp, "sw $fp, 0($sp)\n");
+            fprintf(fp, "addiu $sp, $sp, -4\n");
 
-            t_args_codegen(node->u.funct.args);
+            counter = t_args_codegen(fp, node->u.funct.args, st);
 
-            printf("jal funct_%s_decl\n", node->u.funct.id);
+            fprintf(fp, "jal funct_%s_decl\nnop\n", node->u.funct.id);
+
+            fprintf(fp, "addiu $sp, $sp, %d\n", counter);
+
+            fprintf(fp, "lw $fp, 4($sp)\n");
 
         default:
             break;
     }
-
-    return ret;
 }
-*/
+
 
 
 /*********************************************************************|
@@ -1983,16 +2232,36 @@ void t_argsdef_print(FILE* fp, t_argsdef this)
         break;
 
     default:
-        //TODO
         break;
     }
 
     fprintf(fp, "]\n");
 }
 
-/*
-void t_argsdef_codegen(FILE* fp, t_argsdef node, ST st);
-*/
+// codegen
+void t_argsdef_codegen(FILE* fp, t_argsdef node, ST st)
+{
+
+    fprintf(fp, "### agsdef\n");
+
+    if(node == NULL)
+        return;
+
+    switch(node->kind) {
+    case ARGS_SINGLE:
+        t_argdef_codegen(fp, node->a, st);
+        break;
+    
+    case ARGS_LIST:
+        t_argdef_codegen(fp, node->a, st);
+        t_argsdef_codegen(fp, node->as, st);
+        break;
+
+    default:
+        break;
+    }
+}
+
 
 /*********************************************************************|
 |                               ARGDEF                                |
@@ -2019,9 +2288,20 @@ void t_argdef_print(FILE* fp, t_argdef this)
     t_type_print(fp, this->type);
 }
 
-/*
-void t_argdef_codegen(FILE* fp, t_argdef node, ST st);
-*/
+// codegen
+void t_argdef_codegen(FILE* fp, t_argdef node, ST st)
+{
+
+    fprintf(fp, "### argdef\n");
+
+    if(node == NULL)
+        exit(1);
+
+    ST_Bucket new = st_bucket_new_arg(node->id, node->type, st->curScope, st->curr_addr);
+    st->curr_addr--;
+    
+    st_insert(new, st);
+}
 
 
 /*********************************************************************|
@@ -2060,26 +2340,29 @@ void t_args_print(FILE* fp, t_args this)
     fprintf(fp, "]\n");
 }
 
-/*
-void t_args_codegen(FILE* fp, t_args node, ST st)
+int t_args_codegen(FILE* fp, t_args node, ST st)
 {
+
+    fprintf(fp, "### args\n");
+
     if(node == NULL)
         exit(1);
 
-   if(node->as == NULL) {
-        t_exp_codegen(node->exp);
-        printf("sw $t0, 0($sp)\n");
-        printf("addiu $sp, $sp, -4\n");
+    if(node->as == NULL) {
+        t_exp_codegen(fp, node->exp, st);
+        fprintf(fp, "sw $t0, 0($sp)\n");
+        fprintf(fp, "addiu $sp, $sp, -4\n");
+        return 1;
     }
 
     else {
-        t_args_codegen(node->as);
-        t_exp_codegen(node->exp);
-        printf("sw $t0, 0($sp)\n");
-        printf("addiu $sp, $sp, -4\n");
+        int ret = 1 + t_args_codegen(fp, node->as, st);
+        t_exp_codegen(fp, node->exp, st);
+        fprintf(fp, "sw $t0, 0($sp)\n");
+        fprintf(fp, "addiu $sp, $sp, -4\n");
+        return ret;
     }
 }
-*/
 
 
 /*********************************************************************|
@@ -2122,18 +2405,11 @@ void t_ids_print(FILE* fp, t_ids this)
         break;
 
     default:
-        //TODO
         break;
     }
 
 }
 
-/*
-void t_ids_codegen(FILE* fp, t_ids node, ST st)
-{
-
-}
-*/
 
 /*********************************************************************|
 |                                TYPE                                 |
@@ -2239,10 +2515,3 @@ void t_type_print(FILE* fp, t_type this)
 
     fprintf(fp, "]\n");
 }
-
-/*
-void t_type_codegen(FILE* fp, t_type node, ST st)
-{
-
-}
-*/

@@ -1,12 +1,13 @@
-#ifndef YALANGCOM_H_
-#define YALANGCOM_H_
+#ifndef YALANGCOMP_H_
+#define YALANGCOMP_H_
 
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #define OP_LIM 3
-#define MAX_CONTEXT 53
+#define MAX_SCOPE 53
+#define MAX_STRING_SIZE 256
 
 
 /*********************************************************************/
@@ -88,7 +89,7 @@ void t_type_print(FILE* fp, t_type this);
 typedef struct st_bucket_ *ST_Bucket;
 typedef struct st_ *ST;
 
-ST st_new();
+ST st_new(bool *error);
 ST_Bucket st_bucket_new_print();
 ST_Bucket st_bucket_new_input();
 
@@ -112,13 +113,6 @@ t_type t_exp_ant(t_exp node, ST st);
 /*********************************************************************/
 
 
-typedef struct frame_ *frame;
-
-
-
-/*********************************************************************/
-
-
 void t_decls_codegen(FILE* fp, t_decls node, ST st);
 void t_decl_codegen(FILE* fp, t_decl node, ST st);
 void t_stms_codegen(FILE* fp, t_stms node, ST st);
@@ -126,7 +120,7 @@ void t_stm_codegen(FILE* fp, t_stm node, ST st);
 void t_exp_codegen(FILE* fp, t_exp node, ST st);
 void t_argsdef_codegen(FILE* fp, t_argsdef node, ST st);
 void t_argdef_codegen(FILE* fp, t_argdef node, ST st);
-void t_args_codegen(FILE* fp, t_args node, ST st);
+int t_args_codegen(FILE* fp, t_args node, ST st);
 void t_ids_codegen(FILE* fp, t_ids node, ST st);
 void t_type_codegen(FILE* fp, t_type node, ST st);
 

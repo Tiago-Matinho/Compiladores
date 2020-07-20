@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include "yalangcom.h"
+#include "yalangcomp.h"
 #include "latex.h"  /* print_prologue(), etc. */
 
 #define APT_FILENAME "apt.tex"
+#define MIPS_FILENAME "programa.mips"
 
 extern int yylineno;
 extern FILE *yyin;
@@ -86,25 +87,53 @@ void yyerror (char const *);
 program:  		/*    empty */													{}
 		|	    decls {
 
+
 					FILE* apt_fp = fopen(APT_FILENAME, "w+");
 
 					if(apt_fp == NULL)
 						exit(1);
 
+					t_decls root = $1;
+
 					print_prologue(apt_fp);
-					t_decls_print(apt_fp, $1);
+					t_decls_print(apt_fp, root);
 					print_epilogue(apt_fp);
 
 					fclose(apt_fp);
 
-					ST st = st_new();
+					bool error;
+
+					ST st = st_new(&error);
+					
 					st_insert(st_bucket_new_print(), st);
 					st_insert(st_bucket_new_input(), st);
 					st_new_scope(st);
-					t_decls_ant($1, st);
+					t_decls_ant(root, st);
 
 					st_drop_scope(st);
 					
+					if(error){
+						printf("\nCompiler Stopped.\n");
+						exit(1);
+					}
+					
+					// geracao de codigo
+					FILE* mips_fp = fopen(MIPS_FILENAME, "w+");
+
+
+					fprintf(mips_fp, "j funct_main_decl\nnop\n");
+
+					//inserir print e input
+					fprintf(mips_fp, "funct_print_decl:jr $ra\nnop\n");
+					fprintf(mips_fp, "funct_input_decl:jr $ra\nnop\n");
+
+
+					if(mips_fp == NULL)
+						exit(1);
+
+					t_decls_codegen(mips_fp, root, st);
+
+					fclose(mips_fp);
 				}
 		;
 
