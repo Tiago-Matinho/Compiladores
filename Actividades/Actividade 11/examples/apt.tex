@@ -1,0 +1,102 @@
+\documentclass{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{tikz-qtree}
+\usetikzlibrary{shadows,trees}
+\begin{document}
+\tikzset{font=\small,
+level distance=.8cm,
+every node/.style=
+    {color=white,
+    rectangle,rounded corners,
+    align=center,
+    text = black
+    },
+edge from parent/.style=
+    {draw=blue,
+    thick
+    }}
+
+\centering
+\begin{tikzpicture}
+\Tree [.PROGRAM
+[.DECLs [.DECL(funct) [.ID $fact$ ] [.ARG [.ID $n$ ] [.TYPE $int$ ]
+]
+[.TYPE $int$ ]
+[.BODY [.STMs [.DECL(varinit) [.IDs [.ID $f$ ] [.ID $i$ ]]
+[.TYPE $int$ ]
+[.VALUE [.EXP [.INTLIT $1$ ] ]
+] ]
+[.STMs [.STM [.WHILE [.CONDITION [.EXP [.BINOP $<=$ [.EXP [.ID $i$ ] ]
+[.EXP [.ID $n$ ] ]
+] ]
+] [.DO [.STMs [.STM [.EXP [.ASSIGN [.EXP [.ID $f$ ] ]
+[.EXP [.BINOP $*$ [.EXP [.ID $f$ ] ]
+[.EXP [.ID $i$ ] ]
+] ]
+] ]
+]
+[.STMs [.STM [.EXP [.ASSIGN [.EXP [.ID $i$ ] ]
+[.EXP [.BINOP $+$ [.EXP [.ID $i$ ] ]
+[.EXP [.INTLIT $1$ ] ]
+] ]
+] ]
+]
+$empty$ ]
+]
+] ] ]
+[.STMs [.STM [.RETURN [.EXP [.ID $f$ ] ]
+] ]
+$empty$ ]
+]
+]
+] ]
+[.DECLs [.DECL(funct) [.ID $main$ ] [.ARGs $empty$ ] [.TYPE $void$ ]
+[.BODY [.STMs [.DECL(var) [.ID $x$ ][.TYPE $int$ ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $print$ ] [.ARG [.EXP [.STRINGLIT $Introduza\ um\ inteiro:\ $ ] ]
+]
+] ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $input$ ] [.ARG [.EXP [.ID $x$ ] ]
+]
+] ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $print$ ] [.ARG [.EXP [.STRINGLIT $O\ factorial\ de\ $ ] ]
+]
+] ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $print$ ] [.ARG [.EXP [.ID $x$ ] ]
+]
+] ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $print$ ] [.ARG [.EXP [.STRINGLIT $\ e\ $ ] ]
+]
+] ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $print$ ] [.ARG [.EXP [.CALL [.ID $fact$ ] [.ARG [.EXP [.ID $x$ ] ]
+]
+] ]
+]
+] ]
+]
+[.STMs [.STM [.EXP [.CALL [.ID $print$ ] [.ARG [.EXP [.STRINGLIT $.\textbackslash n$ ] ]
+]
+] ]
+]
+$empty$ ]
+]
+]
+]
+]
+]
+]
+]
+] ]
+$empty$ ]
+]
+]
+\end{tikzpicture}
+\end{document}
