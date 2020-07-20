@@ -4,7 +4,7 @@
 %{
 #include <stdlib.h>
 #include <string.h>
-#include "yalang.h"
+#include "yalangcomp.h"
 #include "parser.h"
 
 int line   = 0;
